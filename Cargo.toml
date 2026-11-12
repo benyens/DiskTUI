@@ -1,0 +1,35 @@
+[package]
+name = "disktui"
+version = "0.1.0"
+edition = "2024"
+description = "Visualizador de audio en la terminal: una planta que crece y florece con la música"
+
+[features]
+# `tap-app`: captura solo el audio de Spotify (tap de Core Audio por proceso).
+# Si esta parte no compila en tu macOS: `cargo run --release --no-default-features -- ...`
+default = ["tap-app"]
+tap-app = ["dep:objc2", "dep:objc2-core-audio", "dep:objc2-core-foundation", "dep:objc2-foundation"]
+
+[dependencies]
+anyhow = "1"
+crossterm = "0.29"
+image = { version = "0.25", default-features = false, features = ["jpeg", "png"] }
+lofty = "0.25"
+ratatui = "0.30"
+realfft = "3.5"
+rodio = { version = "0.23", default-features = false, features = ["playback", "flac", "mp3", "mp4", "vorbis", "wav"] }
+rtrb = "0.4"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = { version = "0.6", optional = true }
+objc2-core-audio = { version = "0.3", optional = true, default-features = false, features = ["std", "AudioHardware", "objc2", "objc2-foundation"] }
+objc2-core-foundation = { version = "0.3.1", optional = true, default-features = false, features = ["std", "objc2", "CFArray", "CFBase", "CFDictionary", "CFString"] }
+objc2-foundation = { version = "0.3", optional = true, default-features = false, features = ["std", "NSArray", "NSString", "NSValue", "NSUUID"] }
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+
+# El render y la FFT son lentos sin optimizar: `cargo run` a secas también va fluido.
+[profile.dev]
+opt-level = 2

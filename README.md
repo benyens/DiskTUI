@@ -24,7 +24,7 @@ o nacer un sistema solar, con los colores de la carátula del disco.
 ## Qué hace
 
 - **La escena la elige la canción** (modo automático), o la fijas tú.
-- **Cuatro escenas**, que cambias en vivo con la tecla `e`:
+- **Cinco escenas**, que cambias en vivo con la tecla `e`:
   - 🌱 **Jardín.** Un brote sale de la tierra, crece como enredadera y florece. Dos flores
     más chicas lo acompañan. Alrededor: aurora, luna, cerros, flores silvestres,
     luciérnagas y mariposas.
@@ -34,6 +34,8 @@ o nacer un sistema solar, con los colores de la carátula del disco.
     El oleaje sigue a los graves y el cielo se refleja en el agua.
   - 🌆 **Ciudad.** Los edificios se levantan de a uno durante la canción. Las ventanas
     siguen la música y los clímax lanzan fuegos artificiales.
+  - 🔥 **Fogata.** Un claro del bosque con un fuego que arde al ritmo de la canción y
+    queda en brasas al final.
 - **Reacciona a tres bandas**: graves, medios y agudos, más bombos y platillos detectados.
 - **Entiende el ánimo de la canción** y arma el clima según eso: sol si es alegre,
   atardecer si es serena, noche con luna si es nostálgica, lluvia si es triste, tormenta
@@ -56,6 +58,8 @@ o nacer un sistema solar, con los colores de la carátula del disco.
 <br><br>
 <img src="docs/oceano.png" alt="Escena océano" width="49%">
 <img src="docs/ciudad.png" alt="Escena ciudad" width="49%">
+<br><br>
+<img src="docs/fogata.png" alt="Escena fogata" width="49%">
 <br><br>
 <img src="docs/climas.png" alt="El mismo jardín bajo cuatro ánimos: alegre, serena, triste e intensa" width="99%">
 <br>
@@ -118,7 +122,7 @@ También se puede saltar el menú desde la línea de comandos:
 
 | Opción | Efecto |
 | --- | --- |
-| `--escena <nombre>` | `auto` (por defecto: la elige el ánimo), `jardin`, `sistema`, `oceano` o `ciudad` |
+| `--escena <nombre>` | `auto` (por defecto: la elige el ánimo), `jardin`, `sistema`, `oceano`, `ciudad` o `fogata` |
 | `--flores <n>` | Flores del jardín, de 1 a 3. Por defecto 3 |
 | `--petalos <n>` | Pétalos de la flor principal, de 3 a 12 |
 | `--velocidad <x>` | Qué tan rápido crece la escena. `2` = el doble. Por defecto 1 |
@@ -132,7 +136,8 @@ También se puede saltar el menú desde la línea de comandos:
 
 | Tecla | Acción |
 | --- | --- |
-| `e` | Cambiar de escena: automática, jardín, sistema solar, océano, ciudad |
+| `e` | Cambiar de escena: automática, jardín, sistema solar, océano, ciudad, fogata |
+| `g` | Grabar un GIF de 8 segundos en `~/Pictures/DiskTUI` (`g` otra vez lo corta antes) |
 | `c` | Mostrar u ocultar la carátula |
 | `d` | Panel de análisis: qué entendió de la canción. Con el panel abierto, `1`–`5` corrigen el ánimo y `0` lo devuelve a automático |
 | `n` / `p` | Canción siguiente / anterior (Spotify y Apple Music) |
@@ -240,6 +245,19 @@ muestra lo entendido: `96 BPM · La menor · nostálgica`.
 Es una heurística: acierta el carácter general de una canción, no sus matices. Si no te
 convence para un tema, `--animo` o la fila *Clima* del menú lo fijan a mano.
 
+### 🔥 Fogata
+
+| Señal | Qué hace |
+| --- | --- |
+| Avance de la canción | El fuego prende al empezar y queda en brasas al final |
+| Graves e intensidad | Altura de las llamas |
+| Agudos y platillo | Chispas |
+| Bombo | Avivan el fuego un instante |
+| Pulso | La luz del fuego late sobre los pinos, la carpa y el pasto |
+| **Clímax** | Llamarada y una nube de chispas |
+| Ánimo | El mismo clima del jardín; el viento inclina las llamas |
+| Carátula | Color de las llamas y de la carpa |
+
 ### Escena automática
 
 Con la escena en *automática*, cada canción elige también dónde ocurre:
@@ -247,14 +265,14 @@ Con la escena en *automática*, cada canción elige también dónde ocurre:
 | Ánimo | Escena |
 | --- | --- |
 | alegre | 🌸 jardín al sol |
-| serena | ⛵ océano al atardecer |
+| serena | 🔥 fogata al atardecer |
 | nostálgica | 🪐 sistema solar |
 | triste | ⛵ océano con lluvia |
 | intensa | 🌆 ciudad con tormenta |
 
 La elección se hace una vez por canción, cuando el análisis ya es fiable: de inmediato en
 modo archivo, a los ~20 segundos en Spotify, con un fundido corto. La tecla `e` recorre
-automática → jardín → sistema solar → océano → ciudad.
+automática → jardín → sistema solar → océano → ciudad → fogata.
 
 ### Cuando se equivoca
 
@@ -278,7 +296,8 @@ Cuando escuchas al menos el 60% de una canción, su flor queda guardada. `disktu
 
 <div align="center"><img src="docs/herbario.png" alt="Herbario" width="80%"></div>
 
-La tecla `s` guarda la escena del momento como PNG en `~/Pictures/DiskTUI`.
+La tecla `s` guarda la escena del momento como PNG en `~/Pictures/DiskTUI`, y `g` graba
+8 segundos como GIF en la misma carpeta.
 
 ## Cómo detecta los clímax
 
@@ -405,9 +424,11 @@ flowchart LR
 | `src/menu.rs` | Menú de inicio y configuración guardada |
 | `src/ocean.rs` | Escena océano: mar, velero y faro |
 | `src/city.rs` | Escena ciudad: edificios, ventanas y fuegos artificiales |
+| `src/campfire.rs` | Escena fogata: fuego, chispas y pinos |
+| `src/stage.rs` | Las cinco escenas juntas: avanzan a la vez |
 | `src/tuning.rs` | Correcciones de ánimo por canción |
 | `src/herbarium.rs` | Herbario: guardado y vista de la colección |
-| `src/postcard.rs` | Postal PNG |
+| `src/postcard.rs` | Postal PNG y grabación en GIF |
 | `src/cosmos.rs` | Escena sistema solar |
 | `src/canvas.rs` | Lienzo de tres capas |
 | `src/palette.rs` | Paleta desde la carátula |
@@ -439,6 +460,7 @@ archivos de audio reales solo corren si defines `DISKTUI_TEST_MEDIA`; sin ella s
 
 ## Ideas
 
-- Más escenas: fogata, bosque.
+- Más escenas: bosque nevado, desierto.
+- Póster con todo el herbario.
 - Binario precompilado en los releases, para instalar sin compilar.
 - Seek y listas de reproducción en modo archivo.

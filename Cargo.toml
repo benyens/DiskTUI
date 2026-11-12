@@ -13,7 +13,7 @@ tap-app = ["dep:objc2", "dep:objc2-core-audio", "dep:objc2-core-foundation", "de
 [dependencies]
 anyhow = "1"
 crossterm = "0.29"
-image = { version = "0.25", default-features = false, features = ["jpeg", "png"] }
+image = { version = "0.25", default-features = false, features = ["gif", "jpeg", "png"] }
 lofty = "0.25"
 ratatui = "0.30"
 realfft = "3.5"

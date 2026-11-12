@@ -1,4 +1,4 @@
-//! Interfaz común de las escenas: el jardín, el sistema solar, el océano y la ciudad.
+//! Interfaz común de las escenas: el jardín, el sistema solar, el océano, la ciudad y la fogata.
 
 use crate::analysis::Bands;
 use crate::canvas::Canvas;
@@ -30,14 +30,19 @@ pub enum SceneKind {
     Cosmos,
     Ocean,
     City,
+    Campfire,
 }
 
 impl SceneKind {
+    #[cfg(test)]
+    const ALL: [SceneKind; 5] = [SceneKind::Garden, SceneKind::Cosmos, SceneKind::Ocean, SceneKind::City, SceneKind::Campfire];
+
     pub fn parse(name: &str) -> Option<Self> {
         match name.to_lowercase().as_str() {
             "jardin" | "jardín" | "flores" | "garden" => Some(SceneKind::Garden),
             "sistema" | "solar" | "sistema-solar" | "cosmos" | "espacio" => Some(SceneKind::Cosmos),
             "ciudad" | "city" | "edificios" => Some(SceneKind::City),
+            "fogata" | "fuego" | "campamento" | "campfire" => Some(SceneKind::Campfire),
             "oceano" | "océano" | "mar" | "velero" | "ocean" => Some(SceneKind::Ocean),
             _ => None,
         }
@@ -50,6 +55,7 @@ impl SceneKind {
             SceneKind::Cosmos => "sistema solar",
             SceneKind::Ocean => "océano",
             SceneKind::City => "ciudad",
+            SceneKind::Campfire => "fogata",
         }
     }
 
@@ -60,6 +66,7 @@ impl SceneKind {
             SceneKind::Cosmos => "sistema",
             SceneKind::Ocean => "oceano",
             SceneKind::City => "ciudad",
+            SceneKind::Campfire => "fogata",
         }
     }
 
@@ -67,7 +74,8 @@ impl SceneKind {
     pub fn for_mood(mood: Mood) -> Self {
         match mood {
             Mood::Happy => SceneKind::Garden,
-            Mood::Serene | Mood::Sad => SceneKind::Ocean,
+            Mood::Serene => SceneKind::Campfire,
+            Mood::Sad => SceneKind::Ocean,
             Mood::Nostalgic => SceneKind::Cosmos,
             Mood::Intense => SceneKind::City,
         }
@@ -78,7 +86,8 @@ impl SceneKind {
             SceneKind::Garden => SceneKind::Cosmos,
             SceneKind::Cosmos => SceneKind::Ocean,
             SceneKind::Ocean => SceneKind::City,
-            SceneKind::City => SceneKind::Garden,
+            SceneKind::City => SceneKind::Campfire,
+            SceneKind::Campfire => SceneKind::Garden,
         }
     }
 }
@@ -112,11 +121,11 @@ impl SceneChoice {
         }
     }
 
-    /// Recorre: automática, jardín, sistema solar, océano, ciudad, y de vuelta.
+    /// Recorre: automática, jardín, sistema solar, océano, ciudad, fogata, y de vuelta.
     pub fn next(self) -> Self {
         match self {
             SceneChoice::Auto => SceneChoice::Fixed(SceneKind::Garden),
-            SceneChoice::Fixed(SceneKind::City) => SceneChoice::Auto,
+            SceneChoice::Fixed(SceneKind::Campfire) => SceneChoice::Auto,
             SceneChoice::Fixed(kind) => SceneChoice::Fixed(kind.next()),
         }
     }
@@ -138,13 +147,13 @@ mod tests {
     fn choice_cycles_through_every_scene_and_back_to_auto() {
         let mut choice = SceneChoice::Auto;
         let mut seen = Vec::new();
-        for _ in 0..5 {
+        for _ in 0..6 {
             seen.push(choice);
             choice = choice.next();
         }
         assert_eq!(choice, SceneChoice::Auto);
-        assert_eq!(seen.len(), 5);
-        for kind in [SceneKind::Garden, SceneKind::Cosmos, SceneKind::Ocean, SceneKind::City] {
+        assert_eq!(seen.len(), 6);
+        for kind in SceneKind::ALL {
             assert!(seen.contains(&SceneChoice::Fixed(kind)));
             assert_eq!(SceneChoice::parse(kind.key()), Some(SceneChoice::Fixed(kind)));
         }
@@ -155,7 +164,7 @@ mod tests {
     #[test]
     fn every_scene_is_reachable_in_auto_mode() {
         let scenes: Vec<SceneKind> = Mood::ALL.into_iter().map(SceneKind::for_mood).collect();
-        for kind in [SceneKind::Garden, SceneKind::Cosmos, SceneKind::Ocean, SceneKind::City] {
+        for kind in SceneKind::ALL {
             assert!(scenes.contains(&kind), "{kind:?} no sale nunca");
         }
         assert_eq!(SceneChoice::Fixed(SceneKind::City).resolve(Mood::Happy), SceneKind::City);

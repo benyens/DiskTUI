@@ -3,6 +3,7 @@
 
 mod analysis;
 mod audio;
+mod campfire;
 mod canvas;
 mod city;
 mod capture;
@@ -25,6 +26,7 @@ mod scene;
 mod scenery;
 mod session;
 mod spotify;
+mod stage;
 mod structure;
 mod tuning;
 #[cfg(all(target_os = "macos", feature = "tap-app"))]
@@ -48,11 +50,9 @@ use color::ColorMode;
 use menu::{MenuResult, Settings, Source};
 use mood::Mood;
 use palette::Palette;
-use cosmos::Cosmos;
-use city::City;
 use garden::Garden;
-use ocean::Ocean;
-use scene::{Frame, Scene, SceneChoice, SceneKind};
+use scene::{Frame, SceneChoice, SceneKind};
+use stage::Stage;
 use session::Session;
 
 const HELP: &str = "\
@@ -68,7 +68,7 @@ USO
   disktui --diagnostico     Prueba el modo Spotify paso a paso y dice qué falla
 
 OPCIONES
-  --escena <nombre>         auto (según el ánimo), jardin, sistema, oceano o ciudad
+  --escena <nombre>         auto (según el ánimo), jardin, sistema, oceano, ciudad o fogata
   --fps <n>                 Cuadros por segundo (por defecto 60)
   --petalos <n>             Pétalos de la flor principal, 3 a 12 (por defecto según la canción)
   --flores <n>              Cantidad de flores, 1 a 3 (por defecto 3)
@@ -85,7 +85,8 @@ OPCIONES
 TECLAS
   q / Esc    salir          espacio   pausa
   + / -      volumen        h         mostrar u ocultar el HUD
-  e          cambiar de escena (automática / jardín / sistema solar / océano / ciudad)
+  e          cambiar de escena (automática / jardín / sistema solar / océano / ciudad / fogata)
+  g          grabar un GIF de 8 segundos en ~/Pictures/DiskTUI
   d          panel de análisis: qué entendió de la canción y cómo corregir el ánimo
   c          mostrar u ocultar la carátula
   n / p      canción siguiente / anterior (Spotify y Apple Music)
@@ -173,7 +174,7 @@ fn parse_args() -> Result<Args> {
                 let name = value("--escena")?;
                 args.scene = Some(
                     SceneChoice::parse(&name)
-                        .ok_or_else(|| anyhow::anyhow!("escena desconocida: {name} (usa auto, jardin, sistema, oceano o ciudad)"))?,
+                        .ok_or_else(|| anyhow::anyhow!("escena desconocida: {name} (usa auto, jardin, sistema, oceano, ciudad o fogata)"))?,
                 );
             }
             "--velocidad" => {
@@ -400,14 +401,8 @@ fn run(
 ) -> Result<RunEnd> {
     let mode = ColorMode::detect();
     let frame_time = Duration::from_secs_f64(1.0 / args.fps as f64);
-    let mut garden = Garden::new(seed, args.flowers, args.petals);
-    garden.scenery.force_mood(args.mood);
-    let mut cosmos = Cosmos::new(seed);
-    let mut ocean = Ocean::new(seed);
-    ocean.scenery.force_mood(args.mood);
-    let mut city = City::new(seed);
-    city.scenery.force_mood(args.mood);
-    cosmos.force_mood(args.mood);
+    let mut stage = Stage::new(seed, Garden::new(seed, args.flowers, args.petals));
+    stage.force_mood(args.mood);
     let mut cover: Option<palette::Cover> = None;
     let mut show_cover = args.cover;
     // Escena: fija, o la que pida el ánimo de la canción. En automático se elige una vez
@@ -418,6 +413,9 @@ fn run(
     let mut fade: Option<(SceneKind, f32)> = None;
     // Panel de análisis y correcciones de ánimo guardadas por canción.
     let mut show_analysis = false;
+    // Grabación de GIF en curso, y el guardado en segundo plano de la anterior.
+    let mut recording: Option<postcard::Recording> = None;
+    let mut gif_job: Option<std::sync::mpsc::Receiver<Result<std::path::PathBuf>>> = None;
     let mut corrections = tuning::Corrections::load();
     let mut applied_mood = args.mood;
     let mut palette = Palette::default();
@@ -464,6 +462,18 @@ fn run(
                         }
                         notice = Some((format!("escena: {}", choice.name()), Instant::now()));
                     }
+                    KeyCode::Char('g') => {
+                        let text = if let Some(rec) = recording.take() {
+                            gif_job = Some(rec.finish());
+                            "guardando el GIF…".to_string()
+                        } else if gif_job.is_some() {
+                            "todavía se está guardando el GIF anterior".to_string()
+                        } else {
+                            recording = Some(postcard::Recording::new(&current.artist, &current.title));
+                            format!("● grabando GIF ({:.0} s) · g para cortar antes", postcard::GIF_SECONDS)
+                        };
+                        notice = Some((text, Instant::now()));
+                    }
                     KeyCode::Char('d') => show_analysis = !show_analysis,
                     // Con el panel abierto, los números corrigen el ánimo de esta canción.
                     KeyCode::Char(digit @ '0'..='5') if show_analysis => {
@@ -501,14 +511,11 @@ fn run(
             cover = tick.cover;
         }
         if tick.new_track {
-            if collect(&current, listened, &song, &garden, &target_palette) {
+            if collect(&current, listened, &song, &stage.garden, &target_palette) {
                 notice = Some((format!("✿ \"{}\" quedó en tu herbario", current.title), Instant::now()));
             }
             listened = 0.0;
-            garden.new_track();
-            cosmos.new_track();
-            ocean.new_track();
-            city.new_track();
+            stage.new_track();
             timeline.reset();
             chosen_for_track = false;
         }
@@ -526,10 +533,7 @@ fn run(
         let wanted_mood = args.mood.or_else(|| corrections.get(&current));
         if wanted_mood != applied_mood {
             applied_mood = wanted_mood;
-            garden.scenery.force_mood(wanted_mood);
-            ocean.scenery.force_mood(wanted_mood);
-            city.scenery.force_mood(wanted_mood);
-            cosmos.force_mood(wanted_mood);
+            stage.force_mood(wanted_mood);
         }
         let heard_mood = Mood::nearest(song.valence, song.arousal);
         let mood_now = wanted_mood.unwrap_or(heard_mood);
@@ -561,7 +565,7 @@ fn run(
             let t = outro.get_or_insert(0.0);
             *t += dt;
             if *t > 4.0 {
-                collect(&current, listened, &song, &garden, &target_palette);
+                collect(&current, listened, &song, &stage.garden, &target_palette);
                 return Ok(if args.from_menu { RunEnd::Menu } else { RunEnd::Quit });
             }
         }
@@ -588,20 +592,25 @@ fn run(
             song_len: song_len / args.speed,
             playing: session.playing(),
         };
-        for scene in [&mut garden as &mut dyn Scene, &mut cosmos, &mut ocean, &mut city] {
-            scene.update(&frame, canvas.w, canvas.h);
-        }
-        match active {
-            SceneKind::Garden => garden.draw(&mut canvas, &palette),
-            SceneKind::Cosmos => cosmos.draw(&mut canvas, &palette),
-            SceneKind::Ocean => ocean.draw(&mut canvas, &palette),
-            SceneKind::City => city.draw(&mut canvas, &palette),
-        }
+        stage.update(&frame, canvas.w, canvas.h);
+        stage.draw(active, &mut canvas, &palette);
         if show_cover && let Some(cover) = &cover {
             cover.draw(&mut canvas, render::SOIL_ROWS * 2 + 8, palette.accent);
         }
         if let Some((_, t)) = fade {
             canvas.dim((2.0 * t - 1.0).abs());
+        }
+        if recording.as_mut().is_some_and(|rec| rec.capture(&canvas, dt)) {
+            gif_job = recording.take().map(postcard::Recording::finish);
+            notice = Some(("guardando el GIF…".to_string(), Instant::now()));
+        }
+        if let Some(result) = gif_job.as_ref().and_then(|job| job.try_recv().ok()) {
+            gif_job = None;
+            let text = match result {
+                Ok(path) => format!("GIF guardado: {}", path.display()),
+                Err(e) => format!("no se pudo guardar el GIF: {e:#}"),
+            };
+            notice = Some((text, Instant::now()));
         }
 
         terminal.draw(|frame| {
@@ -671,28 +680,8 @@ fn dump_frame(secs: f32, w: u16, h: u16, args: &Args) -> String {
     let choice = args.scene.unwrap_or(SceneChoice::Fixed(SceneKind::Garden));
     let kind = choice.resolve(args.mood.unwrap_or(Mood::Happy));
     let speed = args.speed.unwrap_or(1.0);
-    let mut scene: Box<dyn Scene> = match kind {
-        SceneKind::Garden => {
-            let mut garden = Garden::new(0xD3E0, args.flowers.unwrap_or(3), args.petals);
-            garden.scenery.force_mood(args.mood);
-            Box::new(garden)
-        }
-        SceneKind::Cosmos => {
-            let mut cosmos = Cosmos::new(args.seed.unwrap_or(0xD3E0));
-            cosmos.force_mood(args.mood);
-            Box::new(cosmos)
-        }
-        SceneKind::City => {
-            let mut city = City::new(args.seed.unwrap_or(0xD3E0));
-            city.scenery.force_mood(args.mood);
-            Box::new(city)
-        }
-        SceneKind::Ocean => {
-            let mut ocean = Ocean::new(args.seed.unwrap_or(0xD3E0));
-            ocean.scenery.force_mood(args.mood);
-            Box::new(ocean)
-        }
-    };
+    let mut stage = Stage::new(args.seed.unwrap_or(0xD3E0), Garden::new(0xD3E0, args.flowers.unwrap_or(3), args.petals));
+    stage.force_mood(args.mood);
     let palette = Palette::default();
     let hud_rows = ui::rows(args.hud, h);
     let mut canvas = Canvas::new(w as usize, (h - hud_rows) as usize);
@@ -716,10 +705,10 @@ fn dump_frame(secs: f32, w: u16, h: u16, args: &Args) -> String {
             song_len: 75.0 / speed,
             playing: true,
         };
-        scene.update(&frame, canvas.w, canvas.h);
+        stage.update(&frame, canvas.w, canvas.h);
         t += dt;
     }
-    scene.draw(&mut canvas, &palette);
+    stage.draw(kind, &mut canvas, &palette);
     let area = Rect::new(0, 0, w, h);
     let mut buf = Buffer::empty(area);
     canvas.render(&mut buf, Rect { height: h - hud_rows, ..area }, ColorMode::True);

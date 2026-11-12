@@ -17,14 +17,12 @@ use ratatui::text::Span;
 
 use crate::canvas::Canvas;
 use crate::color::{ColorMode, Rgb};
-use crate::cosmos::Cosmos;
 use crate::demo;
-use crate::city::City;
 use crate::garden::Garden;
-use crate::ocean::Ocean;
 use crate::mood::Mood;
 use crate::palette::Palette;
-use crate::scene::{Frame, Scene, SceneChoice, SceneKind};
+use crate::scene::{Frame, SceneChoice, SceneKind};
+use crate::stage::Stage;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Source {
@@ -288,14 +286,8 @@ pub fn run(
     let palette = Palette::default();
     let mut selected = 0usize;
     // Vista previa: las dos escenas corren con la señal del demo.
-    let mut garden = Garden::new(0xD3E0, settings.flowers, None);
-    garden.scenery.force_mood(settings.mood);
-    let mut cosmos = Cosmos::new(11);
-    let mut ocean = Ocean::new(0xD3E0);
-    ocean.scenery.force_mood(settings.mood);
-    let mut city = City::new(0xD3E0);
-    city.scenery.force_mood(settings.mood);
-    cosmos.force_mood(settings.mood);
+    let mut stage = Stage::new(0xD3E0, Garden::new(0xD3E0, settings.flowers, None));
+    stage.force_mood(settings.mood);
     let mut canvas = Canvas::new(1, 1);
     let (mut clock, mut last, mut next_frame) = (18.0f32, Instant::now(), Instant::now());
     const PREVIEW_LEN: f32 = 75.0;
@@ -339,11 +331,11 @@ pub fn run(
                         KeyCode::Right | KeyCode::Char(' ') => change(settings, row, 1),
                         _ => {}
                     }
-                    if garden.members.len() != settings.flowers as usize {
-                        garden = Garden::new(0xD3E0, settings.flowers, None);
-                    }
                     // La vista previa muestra el clima elegido.
-                    garden.scenery.force_mood(settings.mood);
+                    stage.force_mood(settings.mood);
+                    if stage.garden.members.len() != settings.flowers as usize {
+                        stage.set_garden(Garden::new(0xD3E0, settings.flowers, None));
+                    }
                 }
                 _ => {}
             }
@@ -355,27 +347,17 @@ pub fn run(
         clock += dt;
         if clock >= PREVIEW_LEN {
             clock = 0.0;
-            garden.new_track();
-            cosmos.new_track();
-            ocean.new_track();
-            city.new_track();
+            stage.new_track();
         }
         let mut bands = demo::bands_at(clock, PREVIEW_LEN, dt);
         bands.song = demo::song_for(settings.mood.unwrap_or(Mood::Nostalgic));
         let size = terminal.size()?;
         canvas.resize(size.width as usize, size.height as usize);
         let frame = Frame { dt, bands: &bands, progress: Some(clock / PREVIEW_LEN), song_len: PREVIEW_LEN, playing: true };
-        for scene in [&mut garden as &mut dyn Scene, &mut cosmos, &mut ocean, &mut city] {
-            scene.update(&frame, canvas.w, canvas.h);
-        }
+        stage.update(&frame, canvas.w, canvas.h);
         // En automático, la vista previa muestra la escena del clima elegido o del demo.
         let heard = Mood::nearest(bands.song.valence, bands.song.arousal);
-        match settings.scene.resolve(settings.mood.unwrap_or(heard)) {
-            SceneKind::Garden => garden.draw(&mut canvas, &palette),
-            SceneKind::Cosmos => cosmos.draw(&mut canvas, &palette),
-            SceneKind::Ocean => ocean.draw(&mut canvas, &palette),
-            SceneKind::City => city.draw(&mut canvas, &palette),
-        }
+        stage.draw(settings.scene.resolve(settings.mood.unwrap_or(heard)), &mut canvas, &palette);
 
         terminal.draw(|f| {
             let area = f.area();

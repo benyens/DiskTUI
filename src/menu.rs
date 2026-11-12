@@ -24,7 +24,7 @@ use crate::garden::Garden;
 use crate::ocean::Ocean;
 use crate::mood::Mood;
 use crate::palette::Palette;
-use crate::scene::{Frame, Scene, SceneKind};
+use crate::scene::{Frame, Scene, SceneChoice, SceneKind};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Source {
@@ -41,7 +41,7 @@ pub struct Settings {
     pub source: Source,
     /// Ruta del archivo, para `Source::File`.
     pub file: String,
-    pub scene: SceneKind,
+    pub scene: SceneChoice,
     pub flowers: u32,
     pub speed: f32,
     /// Spotify: capturar todo el sistema en vez de solo la app.
@@ -57,7 +57,7 @@ impl Default for Settings {
         Settings {
             source: Source::Spotify,
             file: String::new(),
-            scene: SceneKind::Garden,
+            scene: SceneChoice::Auto,
             flowers: 3,
             speed: 1.0,
             global: false,
@@ -109,7 +109,7 @@ impl Settings {
                     }
                 }
                 "archivo" => s.file = value.to_string(),
-                "escena" => s.scene = SceneKind::parse(value).unwrap_or(SceneKind::Garden),
+                "escena" => s.scene = SceneChoice::parse(value).unwrap_or(SceneChoice::Auto),
                 "flores" => s.flowers = value.parse().unwrap_or(3).clamp(1, 3),
                 "velocidad" => s.speed = value.parse().unwrap_or(1.0f32).clamp(0.25, 8.0),
                 "captura" => s.global = value == "sistema",
@@ -188,7 +188,7 @@ fn rows(s: &Settings) -> Vec<Row> {
         rows.push(Row::File);
     }
     rows.push(Row::Scene);
-    if s.scene == SceneKind::Garden {
+    if matches!(s.scene, SceneChoice::Auto | SceneChoice::Fixed(SceneKind::Garden)) {
         rows.push(Row::Flowers);
     }
     rows.push(Row::Mood);
@@ -368,7 +368,9 @@ pub fn run(
         for scene in [&mut garden as &mut dyn Scene, &mut cosmos, &mut ocean, &mut city] {
             scene.update(&frame, canvas.w, canvas.h);
         }
-        match settings.scene {
+        // En automático, la vista previa muestra la escena del clima elegido o del demo.
+        let heard = Mood::nearest(bands.song.valence, bands.song.arousal);
+        match settings.scene.resolve(settings.mood.unwrap_or(heard)) {
             SceneKind::Garden => garden.draw(&mut canvas, &palette),
             SceneKind::Cosmos => cosmos.draw(&mut canvas, &palette),
             SceneKind::Ocean => ocean.draw(&mut canvas, &palette),
@@ -542,7 +544,7 @@ mod tests {
         let s = Settings {
             source: Source::File,
             file: "/Users/yo/Música/Mi Canción = mejor.mp3".into(),
-            scene: SceneKind::Ocean,
+            scene: SceneChoice::Fixed(SceneKind::Ocean),
             flowers: 2,
             speed: 1.5,
             global: true,
@@ -568,11 +570,11 @@ mod tests {
             [Row::Source, Row::Scene, Row::Flowers, Row::Mood, Row::Speed, Row::Cover, Row::Capture]
         );
         s.source = Source::File;
-        s.scene = SceneKind::Cosmos;
+        s.scene = SceneChoice::Fixed(SceneKind::Cosmos);
         assert_eq!(rows(&s), [Row::Source, Row::File, Row::Scene, Row::Mood, Row::Speed, Row::Cover]);
         // El océano tiene clima pero no flores; el demo no tiene carátula.
         s.source = Source::Demo;
-        s.scene = SceneKind::Ocean;
+        s.scene = SceneChoice::Fixed(SceneKind::Ocean);
         assert_eq!(rows(&s), [Row::Source, Row::Scene, Row::Mood, Row::Speed]);
     }
 

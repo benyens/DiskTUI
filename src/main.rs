@@ -26,6 +26,7 @@ mod scenery;
 mod session;
 mod spotify;
 mod structure;
+mod tuning;
 #[cfg(all(target_os = "macos", feature = "tap-app"))]
 mod tap_macos;
 mod ui;
@@ -51,7 +52,7 @@ use cosmos::Cosmos;
 use city::City;
 use garden::Garden;
 use ocean::Ocean;
-use scene::{Frame, Scene, SceneKind};
+use scene::{Frame, Scene, SceneChoice, SceneKind};
 use session::Session;
 
 const HELP: &str = "\
@@ -67,7 +68,7 @@ USO
   disktui --diagnostico     Prueba el modo Spotify paso a paso y dice qué falla
 
 OPCIONES
-  --escena <nombre>         jardin, sistema (sistema solar), oceano o ciudad
+  --escena <nombre>         auto (según el ánimo), jardin, sistema, oceano o ciudad
   --fps <n>                 Cuadros por segundo (por defecto 60)
   --petalos <n>             Pétalos de la flor principal, 3 a 12 (por defecto según la canción)
   --flores <n>              Cantidad de flores, 1 a 3 (por defecto 3)
@@ -84,7 +85,8 @@ OPCIONES
 TECLAS
   q / Esc    salir          espacio   pausa
   + / -      volumen        h         mostrar u ocultar el HUD
-  e          cambiar de escena (jardín / sistema solar / océano / ciudad)
+  e          cambiar de escena (automática / jardín / sistema solar / océano / ciudad)
+  d          panel de análisis: qué entendió de la canción y cómo corregir el ánimo
   c          mostrar u ocultar la carátula
   n / p      canción siguiente / anterior (Spotify y Apple Music)
   s          guardar una postal PNG en ~/Pictures/DiskTUI
@@ -106,7 +108,7 @@ struct Args {
     fps: u32,
     petals: Option<u32>,
     flowers: Option<u32>,
-    scene: Option<SceneKind>,
+    scene: Option<SceneChoice>,
     speed: Option<f32>,
     mood: Option<Mood>,
     hud: bool,
@@ -170,8 +172,8 @@ fn parse_args() -> Result<Args> {
             "--escena" => {
                 let name = value("--escena")?;
                 args.scene = Some(
-                    SceneKind::parse(&name)
-                        .ok_or_else(|| anyhow::anyhow!("escena desconocida: {name} (usa jardin, sistema, oceano o ciudad)"))?,
+                    SceneChoice::parse(&name)
+                        .ok_or_else(|| anyhow::anyhow!("escena desconocida: {name} (usa auto, jardin, sistema, oceano o ciudad)"))?,
                 );
             }
             "--velocidad" => {
@@ -220,7 +222,7 @@ struct RunOptions {
     fps: u32,
     petals: Option<u32>,
     flowers: u32,
-    scene: SceneKind,
+    scene: SceneChoice,
     speed: f32,
     /// Clima fijo; `None` = el que pida la canción.
     mood: Option<Mood>,
@@ -408,7 +410,16 @@ fn run(
     cosmos.force_mood(args.mood);
     let mut cover: Option<palette::Cover> = None;
     let mut show_cover = args.cover;
-    let mut active = args.scene;
+    // Escena: fija, o la que pida el ánimo de la canción. En automático se elige una vez
+    // por canción, cuando el análisis ya es fiable, y se cambia con un fundido corto.
+    let mut choice = args.scene;
+    let mut active = choice.resolve(args.mood.unwrap_or(Mood::Happy));
+    let mut chosen_for_track = false;
+    let mut fade: Option<(SceneKind, f32)> = None;
+    // Panel de análisis y correcciones de ánimo guardadas por canción.
+    let mut show_analysis = false;
+    let mut corrections = tuning::Corrections::load();
+    let mut applied_mood = args.mood;
     let mut palette = Palette::default();
     let mut target_palette = palette;
     let mut canvas = Canvas::new(1, 1);
@@ -444,7 +455,27 @@ fn run(
                     KeyCode::Char('-') | KeyCode::Char('_') => session.change_volume(-1),
                     KeyCode::Char('h') => show_hud = !show_hud,
                     KeyCode::Char('c') => show_cover = !show_cover,
-                    KeyCode::Char('e') => active = active.next(),
+                    KeyCode::Char('e') => {
+                        choice = choice.next();
+                        chosen_for_track = false;
+                        fade = None;
+                        if let SceneChoice::Fixed(kind) = choice {
+                            active = kind;
+                        }
+                        notice = Some((format!("escena: {}", choice.name()), Instant::now()));
+                    }
+                    KeyCode::Char('d') => show_analysis = !show_analysis,
+                    // Con el panel abierto, los números corrigen el ánimo de esta canción.
+                    KeyCode::Char(digit @ '0'..='5') if show_analysis => {
+                        let mood = Mood::ALL.get((digit as usize).wrapping_sub('1' as usize)).copied();
+                        corrections.set(&current, mood, &song);
+                        chosen_for_track = false;
+                        let text = match mood {
+                            Some(m) => format!("ánimo de esta canción: {}", m.name()),
+                            None => "ánimo de esta canción: automático".to_string(),
+                        };
+                        notice = Some((text, Instant::now()));
+                    }
                     KeyCode::Char('n') => session.skip(1),
                     KeyCode::Char('p') => session.skip(-1),
                     KeyCode::Char('s') => {
@@ -479,6 +510,7 @@ fn run(
             ocean.new_track();
             city.new_track();
             timeline.reset();
+            chosen_for_track = false;
         }
         if session.playing() {
             listened += dt;
@@ -486,8 +518,44 @@ fn run(
         song = tick.bands.song;
         if session.track().title != current.title || session.track().artist != current.artist {
             current = session.track().clone();
+            chosen_for_track = false;
         }
         palette = palette.mix(&target_palette, 1.0 - (-dt * 2.5).exp());
+
+        // Ánimo en uso: el de `--animo`, si no la corrección guardada, si no el del análisis.
+        let wanted_mood = args.mood.or_else(|| corrections.get(&current));
+        if wanted_mood != applied_mood {
+            applied_mood = wanted_mood;
+            garden.scenery.force_mood(wanted_mood);
+            ocean.scenery.force_mood(wanted_mood);
+            city.scenery.force_mood(wanted_mood);
+            cosmos.force_mood(wanted_mood);
+        }
+        let heard_mood = Mood::nearest(song.valence, song.arousal);
+        let mood_now = wanted_mood.unwrap_or(heard_mood);
+        if choice == SceneChoice::Auto && !chosen_for_track && (wanted_mood.is_some() || song.settled >= 0.95) {
+            chosen_for_track = true;
+            let target = SceneKind::for_mood(mood_now);
+            if target != active {
+                // Al empezar la canción no hay nada que fundir: se cambia de inmediato.
+                let early = session.position().as_secs_f32() < 1.5;
+                if early {
+                    active = target;
+                } else {
+                    fade = Some((target, 0.0));
+                }
+            }
+        }
+        if let Some((target, t)) = &mut fade {
+            let before = *t;
+            *t += dt / 0.9;
+            if before < 0.5 && *t >= 0.5 {
+                active = *target;
+            }
+            if *t >= 1.0 {
+                fade = None;
+            }
+        }
 
         if session.finished() {
             let t = outro.get_or_insert(0.0);
@@ -532,6 +600,9 @@ fn run(
         if show_cover && let Some(cover) = &cover {
             cover.draw(&mut canvas, render::SOIL_ROWS * 2 + 8, palette.accent);
         }
+        if let Some((_, t)) = fade {
+            canvas.dim((2.0 * t - 1.0).abs());
+        }
 
         terminal.draw(|frame| {
             let area = frame.area();
@@ -546,9 +617,21 @@ fn run(
                     timeline: &timeline,
                     bands: &tick.bands,
                     scene: active,
+                    auto_scene: choice == SceneChoice::Auto,
                     notice: notice.as_ref().filter(|(_, at)| at.elapsed() < Duration::from_secs(5)).map(|(t, _)| t.as_str()),
                 };
                 ui::draw(frame.buffer_mut(), hud_area, &hud);
+            }
+            if show_analysis {
+                let origin = if args.mood.is_some() {
+                    "fijo"
+                } else if wanted_mood.is_some() {
+                    "corregido"
+                } else {
+                    "auto"
+                };
+                let analysis = ui::Analysis { song: &song, mood: mood_now, origin, pal: &palette, mode };
+                ui::draw_analysis(frame.buffer_mut(), plant_area, &analysis);
             }
         })?;
 
@@ -585,7 +668,8 @@ fn worth_collecting(track: &session::TrackInfo, listened: f32) -> bool {
 fn dump_frame(secs: f32, w: u16, h: u16, args: &Args) -> String {
     use ratatui::style::Color;
     let mut session = demo::DemoSession::new(75.0);
-    let kind = args.scene.unwrap_or(SceneKind::Garden);
+    let choice = args.scene.unwrap_or(SceneChoice::Fixed(SceneKind::Garden));
+    let kind = choice.resolve(args.mood.unwrap_or(Mood::Happy));
     let speed = args.speed.unwrap_or(1.0);
     let mut scene: Box<dyn Scene> = match kind {
         SceneKind::Garden => {
@@ -647,6 +731,7 @@ fn dump_frame(secs: f32, w: u16, h: u16, args: &Args) -> String {
             timeline: &timeline,
             bands: &bands,
             scene: kind,
+            auto_scene: choice == SceneChoice::Auto,
             notice: None,
         };
         ui::draw(&mut buf, Rect { y: h - hud_rows, height: hud_rows, ..area }, &hud);

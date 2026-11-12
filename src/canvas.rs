@@ -77,6 +77,20 @@ impl Canvas {
         }
     }
 
+    /// Oscurece todo el lienzo: `k` = 1 lo deja igual, 0 lo deja en negro. Para fundidos.
+    pub fn dim(&mut self, k: f32) {
+        let k = k.clamp(0.0, 1.0);
+        for p in &mut self.px {
+            *p = p.scale(k);
+        }
+        for c in &mut self.dot_color {
+            *c = (c.0 * k, c.1 * k, c.2 * k, c.3);
+        }
+        for g in self.glyphs.iter_mut().flatten() {
+            g.1 = g.1.scale(k);
+        }
+    }
+
     /// Mezcla un color opaco con transparencia `alpha` sobre el píxel.
     pub fn blend(&mut self, x: i32, y: i32, c: Rgb, alpha: f32) {
         if let Some(i) = self.px_index(x, y) {

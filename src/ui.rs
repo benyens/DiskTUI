@@ -16,6 +16,7 @@ use crate::analysis::Bands;
 use crate::color::{ColorMode, Rgb};
 use crate::mood::Mood;
 use crate::palette::Palette;
+use crate::features::Song;
 use crate::scene::SceneKind;
 use crate::session::Session;
 use crate::structure::SongMap;
@@ -126,6 +127,8 @@ pub struct Hud<'a> {
     pub timeline: &'a Timeline,
     pub bands: &'a Bands,
     pub scene: SceneKind,
+    /// La escena la eligió la canción (modo automático).
+    pub auto_scene: bool,
     /// Aviso pasajero (postal guardada, flor al herbario): reemplaza el texto de la derecha.
     pub notice: Option<&'a str>,
 }
@@ -148,6 +151,60 @@ pub fn draw(buf: &mut Buffer, area: Rect, hud: &Hud) {
         let line = Rect { y: area.bottom() - 1, height: 1, ..area };
         draw_compact(buf, line, hud.session, hud.pal, hud.mode);
     }
+}
+
+/// Lo que muestra el panel de análisis (tecla `d`).
+pub struct Analysis<'a> {
+    pub song: &'a Song,
+    /// Ánimo en uso y de dónde sale: "auto", "corregido" o "fijo".
+    pub mood: Mood,
+    pub origin: &'a str,
+    pub pal: &'a Palette,
+    pub mode: ColorMode,
+}
+
+const PANEL_WIDTH: u16 = 46;
+const PANEL_HEIGHT: u16 = 9;
+
+/// Panel de análisis, arriba a la derecha: qué entendió DiskTUI de la canción y cómo
+/// corregirlo. No se dibuja si no cabe.
+pub fn draw_analysis(buf: &mut Buffer, area: Rect, a: &Analysis) {
+    if area.width < PANEL_WIDTH + 2 || area.height < PANEL_HEIGHT + 1 {
+        return;
+    }
+    let panel = Rect { x: area.right() - PANEL_WIDTH - 1, y: area.y + 1, width: PANEL_WIDTH, height: PANEL_HEIGHT };
+    let bg = a.pal.bg_bottom.scale(0.45);
+    let dim = bg.mix(Rgb::WHITE, 0.45);
+    let bright = bg.mix(Rgb::WHITE, 0.90);
+    for y in 0..panel.height {
+        for x in 0..panel.width {
+            buf[(panel.x + x, panel.y + y)].set_char(' ').set_style(Style::new().bg(a.mode.color(bg)));
+        }
+    }
+    let song = a.song;
+    let bar = |v: f32| {
+        let filled = (v.clamp(0.0, 1.0) * 12.0).round() as usize;
+        format!("{}{}", "█".repeat(filled), "░".repeat(12 - filled))
+    };
+    let percent = |v: f32| format!("{:.0}%", v.clamp(0.0, 1.0) * 100.0);
+    let tempo = if song.bpm > 0.0 { format!("{:.0} BPM · confianza {}", song.bpm, percent(song.tempo_confidence)) } else { "escuchando…".into() };
+    let key = if song.settled > 0.2 { format!("{} · confianza {}", song.key_name(), percent(song.key_confidence)) } else { "escuchando…".into() };
+    let rows: [(&str, String); 6] = [
+        ("ánimo", format!("{} ({})", a.mood.name(), a.origin)),
+        ("valencia", format!("{} {:.2}", bar(song.valence), song.valence)),
+        ("activación", format!("{} {:.2}", bar(song.arousal), song.arousal)),
+        ("tempo", tempo),
+        ("tonalidad", key),
+        ("timbre", format!("brillo {:.2} · densidad {:.2}", song.brightness, song.density)),
+    ];
+    let end = put(buf, panel, a.mode, 1, 0, "análisis", a.pal.petal.mix(Rgb::WHITE, 0.3));
+    put(buf, panel, a.mode, end, 0, &format!(" · escuchado {}", percent(song.settled)), dim);
+    for (i, (label, value)) in rows.iter().enumerate() {
+        put(buf, panel, a.mode, 1, 1 + i as u16, label, dim);
+        put(buf, panel, a.mode, 13, 1 + i as u16, value, bright);
+    }
+    put(buf, panel, a.mode, 1, 7, "corregir: 1 alegre  2 serena  3 nostálgica", dim);
+    put(buf, panel, a.mode, 1, 8, "          4 triste  5 intensa  0 auto", dim);
 }
 
 /// Escribe `text` desde la columna `x` de la fila `y`, sin tocar el fondo de las celdas.
@@ -182,7 +239,7 @@ fn draw_full(buf: &mut Buffer, area: Rect, hud: &Hud) {
     let (right, right_color) = match hud.notice.map(str::to_string).or_else(|| session.warning()) {
         Some(warning) => (warning, pal.accent),
         None => {
-            let scene = hud.scene.name();
+            let scene = if hud.auto_scene { format!("{} (auto)", hud.scene.name()) } else { hud.scene.name().to_string() };
             let mut text = String::new();
             // Lo que se entendió de la canción: tempo, tonalidad y ánimo.
             let song = &hud.bands.song;
@@ -395,7 +452,7 @@ mod tests {
         for width in [8u16, 39, 40, 41, 60, 200] {
             let area = Rect::new(0, 0, width, 3);
             let mut buf = Buffer::empty(area);
-            let hud = Hud { session: &session, pal: &pal, mode: ColorMode::True, timeline: &timeline, bands: &bands, scene: SceneKind::Garden, notice: None };
+            let hud = Hud { session: &session, pal: &pal, mode: ColorMode::True, timeline: &timeline, bands: &bands, scene: SceneKind::Garden, auto_scene: false, notice: None };
             draw(&mut buf, area, &hud);
         }
     }

@@ -23,6 +23,7 @@ o nacer un sistema solar, con los colores de la carátula del disco.
 
 ## Qué hace
 
+- **La escena la elige la canción** (modo automático), o la fijas tú.
 - **Cuatro escenas**, que cambias en vivo con la tecla `e`:
   - 🌱 **Jardín.** Un brote sale de la tierra, crece como enredadera y florece. Dos flores
     más chicas lo acompañan. Alrededor: aurora, luna, cerros, flores silvestres,
@@ -117,7 +118,7 @@ También se puede saltar el menú desde la línea de comandos:
 
 | Opción | Efecto |
 | --- | --- |
-| `--escena <nombre>` | `jardin` (por defecto), `sistema`, `oceano` o `ciudad` |
+| `--escena <nombre>` | `auto` (por defecto: la elige el ánimo), `jardin`, `sistema`, `oceano` o `ciudad` |
 | `--flores <n>` | Flores del jardín, de 1 a 3. Por defecto 3 |
 | `--petalos <n>` | Pétalos de la flor principal, de 3 a 12 |
 | `--velocidad <x>` | Qué tan rápido crece la escena. `2` = el doble. Por defecto 1 |
@@ -131,8 +132,9 @@ También se puede saltar el menú desde la línea de comandos:
 
 | Tecla | Acción |
 | --- | --- |
-| `e` | Cambiar de escena |
+| `e` | Cambiar de escena: automática, jardín, sistema solar, océano, ciudad |
 | `c` | Mostrar u ocultar la carátula |
+| `d` | Panel de análisis: qué entendió de la canción. Con el panel abierto, `1`–`5` corrigen el ánimo y `0` lo devuelve a automático |
 | `n` / `p` | Canción siguiente / anterior (Spotify y Apple Music) |
 | `s` | Guardar una postal PNG en `~/Pictures/DiskTUI` |
 | `m` | Volver al menú |
@@ -237,6 +239,32 @@ muestra lo entendido: `96 BPM · La menor · nostálgica`.
 
 Es una heurística: acierta el carácter general de una canción, no sus matices. Si no te
 convence para un tema, `--animo` o la fila *Clima* del menú lo fijan a mano.
+
+### Escena automática
+
+Con la escena en *automática*, cada canción elige también dónde ocurre:
+
+| Ánimo | Escena |
+| --- | --- |
+| alegre | 🌸 jardín al sol |
+| serena | ⛵ océano al atardecer |
+| nostálgica | 🪐 sistema solar |
+| triste | ⛵ océano con lluvia |
+| intensa | 🌆 ciudad con tormenta |
+
+La elección se hace una vez por canción, cuando el análisis ya es fiable: de inmediato en
+modo archivo, a los ~20 segundos en Spotify, con un fundido corto. La tecla `e` recorre
+automática → jardín → sistema solar → océano → ciudad.
+
+### Cuando se equivoca
+
+La tecla `d` abre un panel con lo que DiskTUI midió: valencia, activación, tempo, tonalidad
+y la confianza de cada uno. Con el panel abierto, `1` a `5` fijan el ánimo de **esa
+canción** y `0` lo devuelve a automático. La corrección se recuerda para la próxima vez que
+suene.
+
+Las correcciones quedan en `~/.local/share/disktui/animos.tsv`, junto a lo que el análisis
+había medido. Ese archivo es la base para calibrar la heurística con música real.
 
 ## Flor única y herbario
 
@@ -377,6 +405,7 @@ flowchart LR
 | `src/menu.rs` | Menú de inicio y configuración guardada |
 | `src/ocean.rs` | Escena océano: mar, velero y faro |
 | `src/city.rs` | Escena ciudad: edificios, ventanas y fuegos artificiales |
+| `src/tuning.rs` | Correcciones de ánimo por canción |
 | `src/herbarium.rs` | Herbario: guardado y vista de la colección |
 | `src/postcard.rs` | Postal PNG |
 | `src/cosmos.rs` | Escena sistema solar |

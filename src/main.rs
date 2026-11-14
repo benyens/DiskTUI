@@ -16,6 +16,7 @@ mod garden;
 mod herbarium;
 mod menu;
 mod meta;
+mod moment;
 mod mood;
 mod ocean;
 mod palette;
@@ -407,11 +408,18 @@ fn run(
     let mut cover: Option<palette::Cover> = None;
     let mut show_cover = args.cover;
     // Escena: fija, o la que pida el ánimo de la canción. En automático se elige una vez
-    // por canción, cuando el análisis ya es fiable, y se cambia con un fundido corto.
+    // por canción, cuando el análisis ya es fiable.
     let mut choice = args.scene;
     let mut active = choice.resolve(args.mood.unwrap_or(Mood::Happy));
     let mut chosen_for_track = false;
-    let mut fade: Option<(SceneKind, f32)> = None;
+    // Cambio de escena: la anterior sigue viva y se funde con la nueva (escena, avance,
+    // duración en segundos).
+    let mut scene_fade: Option<(SceneKind, f32, f32)> = None;
+    let mut before = Canvas::new(0, 0);
+    // Cambio de canción: el último cuadro de la anterior se disuelve en la nueva.
+    let mut song_fade: Option<(Canvas, f32)> = None;
+    let mut tracks_seen = 0u32;
+    let mut drop_moment = moment::DropMoment::default();
     // Panel de análisis y correcciones de ánimo guardadas por canción.
     let mut show_analysis = false;
     // Grabación de GIF en curso, y el guardado en segundo plano de la anterior.
@@ -457,8 +465,10 @@ fn run(
                     KeyCode::Char('e') => {
                         choice = choice.next();
                         chosen_for_track = false;
-                        fade = None;
-                        if let SceneChoice::Fixed(kind) = choice {
+                        if let SceneChoice::Fixed(kind) = choice
+                            && kind != active
+                        {
+                            scene_fade = Some((active, 0.0, 0.6));
                             active = kind;
                         }
                         notice = Some((format!("escena: {}", choice.name()), Instant::now()));
@@ -516,6 +526,11 @@ fn run(
                 notice = Some((format!("✿ \"{}\" quedó en tu herbario", current.title), Instant::now()));
             }
             listened = 0.0;
+            tracks_seen += 1;
+            // El último cuadro de la canción anterior se funde con la nueva.
+            if tracks_seen > 1 {
+                song_fade = Some((canvas.clone(), 0.0));
+            }
             stage.new_track();
             timeline.reset();
             chosen_for_track = false;
@@ -542,25 +557,30 @@ fn run(
             chosen_for_track = true;
             let target = SceneKind::for_mood(mood_now);
             if target != active {
-                // Al empezar la canción no hay nada que fundir: se cambia de inmediato.
-                let early = session.position().as_secs_f32() < 1.5;
-                if early {
-                    active = target;
-                } else {
-                    fade = Some((target, 0.0));
+                // En la primera canción no hay nada que fundir: se cambia de inmediato.
+                let first = tracks_seen <= 1 && session.position().as_secs_f32() < 1.5;
+                if !first {
+                    scene_fade = Some((active, 0.0, 2.2));
                 }
+                active = target;
             }
         }
-        if let Some((target, t)) = &mut fade {
-            let before = *t;
-            *t += dt / 0.9;
-            if before < 0.5 && *t >= 0.5 {
-                active = *target;
-            }
+        if let Some((_, t, length)) = &mut scene_fade {
+            *t += dt / *length;
             if *t >= 1.0 {
-                fade = None;
+                scene_fade = None;
             }
         }
+        if let Some((_, t)) = &mut song_fade {
+            *t += dt / 2.5;
+            if *t >= 1.0 {
+                song_fade = None;
+            }
+        }
+        // El drop: se sabe cuándo viene el próximo clímax si la canción está pre-analizada.
+        let position = session.position().as_secs_f32();
+        let next_climax = session.song_map().and_then(|m| m.climaxes.iter().copied().find(|&c| c > position)).map(|c| c - position);
+        drop_moment.update(dt, next_climax, tick.bands.climax, session.playing());
 
         if session.finished() {
             let t = outro.get_or_insert(0.0);
@@ -587,7 +607,7 @@ fn run(
         // Las dos escenas avanzan siempre: al cambiar con `e`, la otra ya va al día.
         // `--velocidad` adelanta el reloj de las escenas respecto a la canción.
         let frame = Frame {
-            dt,
+            dt: dt * drop_moment.time_scale(),
             bands: &tick.bands,
             progress: session.progress().map(|p| (p * args.speed).min(1.0)),
             song_len: song_len / args.speed,
@@ -595,11 +615,17 @@ fn run(
         };
         stage.update(&frame, canvas.w, canvas.h);
         stage.draw(active, &mut canvas, &palette);
+        if let Some((from, t, _)) = scene_fade {
+            before.resize(canvas.w, canvas.h);
+            stage.draw(from, &mut before, &palette);
+            canvas.crossfade(&before, plant::smoothstep(0.0, 1.0, t));
+        }
+        if let Some((old, t)) = &song_fade {
+            canvas.crossfade(old, plant::smoothstep(0.0, 1.0, *t));
+        }
+        drop_moment.apply(&mut canvas, palette.accent.mix(color::Rgb::WHITE, 0.6));
         if show_cover && let Some(cover) = &cover {
             cover.draw(&mut canvas, render::SOIL_ROWS * 2 + 8, palette.accent);
-        }
-        if let Some((_, t)) = fade {
-            canvas.dim((2.0 * t - 1.0).abs());
         }
         if recording.as_mut().is_some_and(|rec| rec.capture(&canvas, dt)) {
             gif_job = recording.take().map(postcard::Recording::finish);

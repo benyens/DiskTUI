@@ -11,6 +11,7 @@ use ratatui::style::Style;
 
 use crate::color::{ColorMode, Rgb};
 
+#[derive(Clone)]
 pub struct Canvas {
     /// Ancho y alto en celdas.
     pub w: usize,
@@ -88,6 +89,57 @@ impl Canvas {
         }
         for g in self.glyphs.iter_mut().flatten() {
             g.1 = g.1.scale(k);
+        }
+    }
+
+    /// Tiñe todo el lienzo hacia `color` en proporción `k` (0..1). Para destellos.
+    pub fn wash(&mut self, color: Rgb, k: f32) {
+        let k = k.clamp(0.0, 1.0);
+        for p in &mut self.px {
+            *p = p.mix(color, k);
+        }
+        for d in &mut self.dot_color {
+            let n = d.3;
+            *d = (d.0 + (color.0 * n - d.0) * k, d.1 + (color.1 * n - d.1) * k, d.2 + (color.2 * n - d.2) * k, n);
+        }
+        for g in self.glyphs.iter_mut().flatten() {
+            g.1 = g.1.mix(color, k);
+        }
+    }
+
+    /// Funde `before` (lo que se veía) con este lienzo (lo nuevo): `t` = 0 muestra solo
+    /// `before`, 1 solo lo nuevo. Los puntos y glifos de cada lado se disuelven en el fondo
+    /// en su mitad del fundido. Si los tamaños no coinciden, no hace nada.
+    pub fn crossfade(&mut self, before: &Canvas, t: f32) {
+        if before.w != self.w || before.h != self.h {
+            return;
+        }
+        let t = t.clamp(0.0, 1.0);
+        for (p, old) in self.px.iter_mut().zip(&before.px) {
+            *p = old.mix(*p, t);
+        }
+        for (c, old) in self.cover.iter_mut().zip(&before.cover) {
+            *c = old + (*c - old) * t;
+        }
+        // Primera mitad: queda la capa fina de antes, apagándose; segunda: entra la nueva.
+        let (strength, from_before) = if t < 0.5 { (1.0 - 2.0 * t, true) } else { (2.0 * t - 1.0, false) };
+        for i in 0..self.w * self.h {
+            let (cx, cy) = (i % self.w, i / self.w);
+            let under = self.px[cy * 2 * self.w + cx].mix(self.px[(cy * 2 + 1) * self.w + cx], 0.5);
+            if from_before {
+                self.dots[i] = before.dots[i];
+                self.dot_color[i] = before.dot_color[i];
+                self.glyphs[i] = before.glyphs[i];
+            }
+            let n = self.dot_color[i].3;
+            if n > 0.0 {
+                let d = &mut self.dot_color[i];
+                let k = 1.0 - strength;
+                *d = (d.0 + (under.0 * n - d.0) * k, d.1 + (under.1 * n - d.1) * k, d.2 + (under.2 * n - d.2) * k, n);
+            }
+            if let Some(g) = &mut self.glyphs[i] {
+                g.1 = under.mix(g.1, strength);
+            }
         }
     }
 
@@ -318,5 +370,30 @@ mod tests {
         let mut buf = Buffer::empty(Rect::new(0, 0, 1, 1));
         c.render(&mut buf, Rect::new(0, 0, 1, 1), ColorMode::True);
         assert_eq!(buf[(0, 0)].symbol(), "▀");
+    }
+
+    #[test]
+    fn crossfade_goes_from_old_to_new() {
+        let mut old = Canvas::new(4, 2);
+        old.clear(|_, _| Rgb(1.0, 0.0, 0.0));
+        old.dot(0, 0, Rgb::WHITE);
+        let mut new = Canvas::new(4, 2);
+        new.clear(|_, _| Rgb(0.0, 0.0, 1.0));
+        let mut start = new.clone();
+        start.crossfade(&old, 0.0);
+        assert_eq!(start.px[0], Rgb(1.0, 0.0, 0.0));
+        assert_eq!(start.dots[0], old.dots[0], "al empezar se ven los puntos de antes");
+        let mut end = new.clone();
+        end.crossfade(&old, 1.0);
+        assert_eq!(end.px[0], Rgb(0.0, 0.0, 1.0));
+        assert_eq!(end.dots[0], 0);
+        let mut middle = new.clone();
+        middle.crossfade(&old, 0.5);
+        assert!((middle.px[0].0 - 0.5).abs() < 1e-5 && (middle.px[0].2 - 0.5).abs() < 1e-5);
+        // Tamaños distintos: no toca nada.
+        let mut other = Canvas::new(5, 2);
+        other.clear(|_, _| Rgb::BLACK);
+        other.crossfade(&old, 0.5);
+        assert_eq!(other.px[0], Rgb::BLACK);
     }
 }

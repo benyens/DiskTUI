@@ -66,6 +66,11 @@ impl Stage {
         }
     }
 
+    /// Ánimo del momento, movido por la sección que suena.
+    pub fn moment(&self) -> Mood {
+        self.garden.scenery.moment()
+    }
+
     pub fn draw(&self, kind: SceneKind, canvas: &mut Canvas, pal: &Palette) {
         match kind {
             SceneKind::Garden => self.garden.draw(canvas, pal),

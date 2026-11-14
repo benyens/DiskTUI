@@ -13,7 +13,7 @@ use std::f32::consts::TAU;
 use crate::analysis::Bands;
 use crate::canvas::Canvas;
 use crate::color::Rgb;
-use crate::mood::{Atmosphere, Mood};
+use crate::mood::{self, Atmosphere, Mood, SectionEnergy};
 use crate::palette::Palette;
 use crate::plant::{Rng, smoothstep};
 use crate::render::View;
@@ -90,6 +90,10 @@ pub struct Scenery {
     atm: Atmosphere,
     /// Ánimo fijado a mano; `None` = el de la canción.
     forced: Option<Mood>,
+    /// Energía de la sección que suena: mueve el clima dentro de la canción.
+    energy: SectionEnergy,
+    /// Ánimo del momento, ya movido por la sección.
+    moment: Mood,
     /// Solo el cielo (océano, ciudad): sin cerros, flores ni bichos, y la lluvia cae hasta
     /// abajo.
     pub bare: bool,
@@ -121,6 +125,8 @@ impl Scenery {
             fading: None,
             atm: Atmosphere::default(),
             forced: None,
+            energy: SectionEnergy::default(),
+            moment: Mood::Nostalgic,
             bare: false,
             clouds: Vec::new(),
             gust: 0.0,
@@ -179,6 +185,11 @@ impl Scenery {
         }
     }
 
+    /// Ánimo del momento, ya movido por la sección que suena.
+    pub fn moment(&self) -> Mood {
+        self.moment
+    }
+
     pub fn atmosphere(&self) -> &Atmosphere {
         &self.atm
     }
@@ -195,6 +206,7 @@ impl Scenery {
 
     /// Canción nueva: el ambiente se apaga y se rehace.
     pub fn fade(&mut self) {
+        self.energy.reset();
         if self.fading.is_none() {
             self.fading = Some(0.0);
         }
@@ -223,14 +235,23 @@ impl Scenery {
 
         // Clima: sigue al ánimo de la canción, con calma. Mientras el ánimo aún no es
         // fiable (primeros segundos en Spotify) se queda cerca de la noche por defecto.
-        let target = match self.forced {
-            Some(mood) => Atmosphere::of(mood),
+        // Dentro de la canción, la energía de cada sección lo mueve: el verso calma, el coro
+        // agita. También con el ánimo fijado a mano, alrededor de ese ánimo.
+        self.energy.update(bands.intensity, bands.climax, playing, dt);
+        let energy = self.energy.get();
+        let (base, (v, a)) = match self.forced {
+            Some(mood) => (Atmosphere::of(mood), mood.center()),
             None => {
                 let mut blend = Atmosphere::default();
                 blend.approach(&Atmosphere::for_mood(bands.song.valence, bands.song.arousal), bands.song.settled);
-                blend
+                (blend, (bands.song.valence, bands.song.arousal))
             }
         };
+        let trust = if self.forced.is_some() { 1.0 } else { bands.song.settled };
+        let song_mood = self.forced.unwrap_or(Mood::nearest(v, a));
+        // Cerca del medio no cambia nada; en los extremos, la sección manda.
+        let (target, moment) = mood::section_weather(&base, song_mood, v, energy, trust);
+        self.moment = moment;
         self.atm.approach(&target, 1.0 - (-dt / 3.5).exp());
         self.gust = (self.gust * (-dt / 2.0).exp()).max(if bands.section { 1.0 } else { 0.0 });
         self.flash *= (-dt / 0.22).exp();

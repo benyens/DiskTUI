@@ -194,6 +194,69 @@ impl Default for Atmosphere {
     }
 }
 
+/// Cuánto mueve la energía de la sección el ánimo hacia arriba o abajo en el eje de
+/// activación: con energía 1 sube `SECTION_SWING / 2`, con 0 baja lo mismo.
+pub const SECTION_SWING: f32 = 0.8;
+
+/// Ánimo del momento: el de la canción, movido según la energía de la sección que suena.
+/// Un verso tranquilo calma el clima; un coro fuerte lo agita.
+pub fn in_section(valence: f32, arousal: f32, energy: f32) -> (f32, f32) {
+    let shift = (energy.clamp(0.0, 1.0) - 0.5) * SECTION_SWING;
+    (valence, (arousal + shift).clamp(0.0, 1.0))
+}
+
+/// Clima de una sección: el de la canción (`base`), llevado hacia su versión más agitada en
+/// las partes fuertes y hacia la más calma en las suaves. Las canciones de valencia baja se
+/// agitan hacia la tormenta y se calman hacia la lluvia; las de valencia alta, hacia el sol
+/// pleno y el atardecer. Devuelve también el ánimo del momento.
+pub fn section_weather(base: &Atmosphere, song: Mood, valence: f32, energy: f32, trust: f32) -> (Atmosphere, Mood) {
+    let bright = ((valence - 0.30) / 0.40).clamp(0.0, 1.0);
+    let lift = (energy.clamp(0.0, 1.0) - 0.5) * 2.0;
+    let (dark, light) = if lift >= 0.0 { (Mood::Intense, Mood::Happy) } else { (Mood::Sad, Mood::Serene) };
+    let mut toward = Atmosphere::of(dark);
+    toward.approach(&Atmosphere::of(light), bright);
+    let weight = trust * (lift.abs() * 0.9).min(0.85);
+    let mut out = *base;
+    out.approach(&toward, weight);
+    let moment = if weight > 0.4 { if bright < 0.5 { dark } else { light } } else { song };
+    (out, moment)
+}
+
+/// Energía de la sección: la intensidad suavizada, para que siga a las partes de la canción
+/// (verso, coro) y no a cada golpe.
+#[derive(Clone, Copy, Debug)]
+pub struct SectionEnergy(f32);
+
+impl Default for SectionEnergy {
+    fn default() -> Self {
+        SectionEnergy(0.5)
+    }
+}
+
+impl SectionEnergy {
+    /// Tiempo de respuesta, en segundos: una sección nueva se nota en unos 5 s.
+    const TAU: f32 = 4.0;
+
+    pub fn update(&mut self, intensity: f32, climax: bool, playing: bool, dt: f32) {
+        if !playing {
+            return;
+        }
+        // Un clímax es la sección más intensa: entra de golpe en vez de esperar.
+        let target = if climax { 1.0 } else { intensity.clamp(0.0, 1.0) };
+        let k = if climax { 0.5 } else { 1.0 - (-dt / Self::TAU).exp() };
+        self.0 += (target - self.0) * k;
+    }
+
+    pub fn get(self) -> f32 {
+        self.0
+    }
+
+    /// Canción nueva: vuelve al medio.
+    pub fn reset(&mut self) {
+        self.0 = 0.5;
+    }
+}
+
 impl Atmosphere {
     /// Clima para un punto del plano: mezcla de los cinco, cada uno pesado por cercanía.
     pub fn for_mood(valence: f32, arousal: f32) -> Atmosphere {
@@ -317,5 +380,42 @@ mod tests {
             assert_eq!(Mood::parse(mood.name()), Some(mood));
         }
         assert_eq!(Mood::parse("jazz"), None);
+    }
+
+    #[test]
+    fn loud_sections_stir_the_weather_and_quiet_ones_calm_it() {
+        // Una canción triste: el coro fuerte la acerca a la tormenta, el verso suave a la calma.
+        let (v, a) = Mood::Sad.center();
+        let chorus = in_section(v, a, 1.0);
+        let verse = in_section(v, a, 0.0);
+        assert!(chorus.1 > a + 0.2 && verse.1 < a);
+        assert_eq!(chorus.0, v, "la valencia es de la canción, no de la sección");
+        let storm = |p: (f32, f32)| Atmosphere::for_mood(p.0, p.1).storm;
+        assert!(storm(chorus) > storm(verse) + 0.1, "{} vs {}", storm(chorus), storm(verse));
+
+        // El clima: el coro de una canción triste trae tormenta sin quitar la lluvia; el
+        // verso de una alegre baja el sol hacia el atardecer.
+        let sad = Atmosphere::of(Mood::Sad);
+        let (loud, now) = section_weather(&sad, Mood::Sad, v, 1.0, 1.0);
+        assert!(loud.storm > sad.storm + 0.3 && loud.rain >= sad.rain * 0.6, "{loud:?}");
+        assert_eq!(now, Mood::Intense);
+        let happy = Atmosphere::of(Mood::Happy);
+        let (quiet, now) = section_weather(&happy, Mood::Happy, Mood::Happy.center().0, 0.0, 1.0);
+        assert!(quiet.sun_height < happy.sun_height - 0.1, "{quiet:?}");
+        assert_eq!(now, Mood::Serene);
+        let (same, now) = section_weather(&happy, Mood::Happy, 0.76, 0.5, 1.0);
+        assert!((same.sun_height - happy.sun_height).abs() < 1e-4 && now == Mood::Happy);
+
+        let mut energy = SectionEnergy::default();
+        for _ in 0..600 {
+            energy.update(0.9, false, true, 1.0 / 60.0);
+        }
+        assert!(energy.get() > 0.85, "{}", energy.get());
+        let before = energy.get();
+        energy.update(0.0, false, false, 1.0);
+        assert_eq!(energy.get(), before, "en pausa no cambia");
+        energy.reset();
+        energy.update(0.0, true, true, 1.0 / 60.0);
+        assert!(energy.get() >= 0.75, "el clímax entra de golpe: {}", energy.get());
     }
 }

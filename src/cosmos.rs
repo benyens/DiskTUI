@@ -8,7 +8,7 @@ use std::f32::consts::TAU;
 use crate::analysis::Bands;
 use crate::canvas::Canvas;
 use crate::color::Rgb;
-use crate::mood::Mood;
+use crate::mood::{self, Mood, SectionEnergy};
 use crate::palette::Palette;
 use crate::plant::{Rng, smoothstep};
 use crate::scene::{Frame, Scene};
@@ -114,6 +114,7 @@ pub struct Cosmos {
     /// Ánimo de la canción, suavizado: (valencia, activación).
     feeling: (f32, f32),
     forced: Option<Mood>,
+    energy: SectionEnergy,
 }
 
 impl Cosmos {
@@ -139,6 +140,7 @@ impl Cosmos {
             collapse: None,
             feeling: (0.5, 0.5),
             forced: None,
+            energy: SectionEnergy::default(),
         };
         cosmos.generate();
         cosmos
@@ -264,10 +266,13 @@ impl Cosmos {
         let b = f.bands;
         self.time += dt;
         self.bands = *b;
-        let (target, pull) = match self.forced {
+        self.energy.update(b.intensity, b.climax, f.playing, dt);
+        let (base, pull) = match self.forced {
             Some(mood) => (mood.center(), 1.0),
             None => ((b.song.valence, b.song.arousal), b.song.settled),
         };
+        // Como en el clima: la sección que suena mueve el ánimo dentro de la canción.
+        let target = mood::in_section(base.0, base.1, self.energy.get());
         let k = (1.0 - (-dt / 2.0).exp()) * pull;
         self.feeling = (self.feeling.0 + (target.0 - self.feeling.0) * k, self.feeling.1 + (target.1 - self.feeling.1) * k);
         let decay = |v: f32, tau: f32, hit: bool| (v * (-dt / tau).exp()).max(if hit { 1.0 } else { 0.0 });
@@ -387,6 +392,7 @@ impl Scene for Cosmos {
     }
 
     fn new_track(&mut self) {
+        self.energy.reset();
         if self.collapse.is_none() {
             self.collapse = Some(0.0);
         }

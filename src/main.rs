@@ -644,6 +644,7 @@ fn run(
                     song: &song,
                     mood: mood_now,
                     origin,
+                    moment: stage.moment(),
                     source: session.label(),
                     warning: session.warning().map(|w| w.detail),
                     pal: &palette,

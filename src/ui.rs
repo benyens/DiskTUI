@@ -159,6 +159,8 @@ pub struct Analysis<'a> {
     /// Ánimo en uso y de dónde sale: "auto", "corregido" o "fijo".
     pub mood: Mood,
     pub origin: &'a str,
+    /// Ánimo del momento, movido por la sección que suena.
+    pub moment: Mood,
     /// De dónde viene el audio, por ejemplo "Spotify · solo la app".
     pub source: String,
     /// Aviso completo de la fuente, si hay.
@@ -214,7 +216,7 @@ pub fn draw_analysis(buf: &mut Buffer, area: Rect, a: &Analysis) {
     let tempo = if song.bpm > 0.0 { format!("{:.0} BPM · confianza {}", song.bpm, percent(song.tempo_confidence)) } else { "escuchando…".into() };
     let key = if song.settled > 0.2 { format!("{} · confianza {}", song.key_name(), percent(song.key_confidence)) } else { "escuchando…".into() };
     let rows: [(&str, String); 6] = [
-        ("ánimo", format!("{} ({})", a.mood.name(), a.origin)),
+        ("ánimo", if a.moment == a.mood { format!("{} ({})", a.mood.name(), a.origin) } else { format!("{} ({}) · ahora {}", a.mood.name(), a.origin, a.moment.name()) }),
         ("valencia", format!("{} {:.2}", bar(song.valence), song.valence)),
         ("activación", format!("{} {:.2}", bar(song.arousal), song.arousal)),
         ("tempo", tempo),
@@ -543,6 +545,7 @@ mod tests {
             song: &song,
             mood: Mood::Happy,
             origin: "auto",
+            moment: Mood::Happy,
             source: session.label(),
             warning: session.warning().map(|w| w.detail),
             pal: &pal,

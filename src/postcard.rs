@@ -20,7 +20,7 @@ pub fn file_stem(artist: &str, title: &str) -> String {
 }
 
 /// Ruta nueva en `~/Pictures/DiskTUI/` para esta canción, con la extensión dada.
-fn target(artist: &str, title: &str, extension: &str) -> Result<PathBuf> {
+pub fn target(artist: &str, title: &str, extension: &str) -> Result<PathBuf> {
     let home = std::env::var_os("HOME").ok_or_else(|| anyhow!("no se conoce la carpeta personal"))?;
     let dir = PathBuf::from(home).join("Pictures").join("DiskTUI");
     std::fs::create_dir_all(&dir).with_context(|| format!("no se pudo crear {}", dir.display()))?;

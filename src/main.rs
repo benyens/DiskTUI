@@ -21,6 +21,7 @@ mod mood;
 mod ocean;
 mod palette;
 mod plant;
+mod poster;
 mod postcard;
 mod reef;
 mod render;
@@ -30,6 +31,7 @@ mod session;
 mod spotify;
 mod stage;
 mod structure;
+mod text;
 mod train;
 mod tuning;
 #[cfg(all(target_os = "macos", feature = "tap-app"))]

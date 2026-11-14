@@ -131,7 +131,7 @@ impl Entry {
 }
 
 /// Fecha local de hoy, `AAAA-MM-DD`. Usa el comando `date` para respetar la zona horaria.
-fn today() -> String {
+pub fn today() -> String {
     std::process::Command::new("date")
         .arg("+%Y-%m-%d")
         .output()
@@ -198,9 +198,11 @@ pub fn draw_specimen(canvas: &mut Canvas, entry: &Entry, cx: f32, cy: f32, radiu
 /// Pantalla del herbario. Vuelve al salir con `Esc` o `q`.
 pub fn view(terminal: &mut DefaultTerminal, mode: ColorMode) -> Result<()> {
     let entries = load();
+    let week = crate::poster::Week::of(&entries, &today());
     let pal = Palette::default();
     let mut canvas = Canvas::new(1, 1);
     let mut scroll = 0usize;
+    let mut notice: Option<(String, Instant)> = None;
     let start = Instant::now();
     loop {
         let size = terminal.size()?;
@@ -217,6 +219,13 @@ pub fn view(terminal: &mut DefaultTerminal, mode: ColorMode) -> Result<()> {
                     KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => return Ok(()),
                     KeyCode::Up => scroll = scroll.saturating_sub(1),
                     KeyCode::Down => scroll = (scroll + 1).min(max_scroll),
+                    KeyCode::Char('p') => {
+                        let text = match crate::poster::save(&entries, &week) {
+                            Ok(_) => "póster guardado en ~/Pictures/DiskTUI".to_string(),
+                            Err(e) => format!("no se pudo guardar el póster: {e:#}"),
+                        };
+                        notice = Some((text, Instant::now()));
+                    }
                     _ => {}
                 },
                 // Aquí el scroll sí sirve: desplaza la colección.
@@ -252,7 +261,11 @@ pub fn view(terminal: &mut DefaultTerminal, mode: ColorMode) -> Result<()> {
             let dim = pal.bg_top.mix(Rgb::WHITE, 0.45);
             let bright = pal.bg_top.mix(Rgb::WHITE, 0.9);
             let header = format!(" ✿ Herbario · {} flores", entries.len());
+            let end = Span::raw(header.as_str()).width() as u16;
             put(buf, area, mode, 0, 0, &header, pal.petal.mix(Rgb::WHITE, 0.3), area.width as usize);
+            if let Some(line) = week.line() {
+                put(buf, area, mode, end, 0, &format!("   {line}"), dim, (area.width as usize).saturating_sub(end as usize));
+            }
             if entries.is_empty() {
                 let text = "Aún no hay flores. Escucha una canción casi entera y quedará guardada.";
                 put(buf, area, mode, 2, area.height / 2, text, dim, area.width as usize - 2);
@@ -271,8 +284,11 @@ pub fn view(terminal: &mut DefaultTerminal, mode: ColorMode) -> Result<()> {
                     put(buf, area, mode, x, y0 + 8 + k as u16, text, color, TILE.0 - 2);
                 }
             }
-            let footer = " ↑↓ o scroll para desplazar · Esc para volver";
-            put(buf, area, mode, 0, area.height.saturating_sub(1), footer, dim, area.width as usize);
+            let footer = match notice.as_ref().filter(|(_, at)| at.elapsed() < Duration::from_secs(5)) {
+                Some((text, _)) => format!(" {text}"),
+                None => " ↑↓ o scroll para desplazar · p guarda un póster · Esc para volver".to_string(),
+            };
+            put(buf, area, mode, 0, area.height.saturating_sub(1), &footer, dim, area.width as usize);
         })?;
         std::thread::sleep(Duration::from_millis(50));
     }

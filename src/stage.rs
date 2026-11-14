@@ -11,7 +11,9 @@ use crate::garden::Garden;
 use crate::mood::Mood;
 use crate::ocean::Ocean;
 use crate::palette::Palette;
+use crate::reef::Reef;
 use crate::scene::{Frame, Scene, SceneKind};
+use crate::train::Train;
 
 pub struct Stage {
     pub garden: Garden,
@@ -19,6 +21,8 @@ pub struct Stage {
     ocean: Ocean,
     city: City,
     campfire: Campfire,
+    train: Train,
+    reef: Reef,
     mood: Option<Mood>,
 }
 
@@ -30,6 +34,8 @@ impl Stage {
             ocean: Ocean::new(seed),
             city: City::new(seed),
             campfire: Campfire::new(seed),
+            train: Train::new(seed),
+            reef: Reef::new(seed),
             mood: None,
         }
     }
@@ -48,10 +54,12 @@ impl Stage {
         self.ocean.scenery.force_mood(mood);
         self.city.scenery.force_mood(mood);
         self.campfire.scenery.force_mood(mood);
+        self.train.scenery.force_mood(mood);
+        self.reef.scenery.force_mood(mood);
     }
 
-    fn all(&mut self) -> [&mut dyn Scene; 5] {
-        [&mut self.garden, &mut self.cosmos, &mut self.ocean, &mut self.city, &mut self.campfire]
+    fn all(&mut self) -> [&mut dyn Scene; 7] {
+        [&mut self.garden, &mut self.cosmos, &mut self.ocean, &mut self.city, &mut self.campfire, &mut self.train, &mut self.reef]
     }
 
     pub fn update(&mut self, frame: &Frame, w: usize, h: usize) {
@@ -78,6 +86,8 @@ impl Stage {
             SceneKind::Ocean => self.ocean.draw(canvas, pal),
             SceneKind::City => self.city.draw(canvas, pal),
             SceneKind::Campfire => self.campfire.draw(canvas, pal),
+            SceneKind::Train => self.train.draw(canvas, pal),
+            SceneKind::Reef => self.reef.draw(canvas, pal),
         }
     }
 }

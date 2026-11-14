@@ -22,6 +22,7 @@ mod ocean;
 mod palette;
 mod plant;
 mod postcard;
+mod reef;
 mod render;
 mod scene;
 mod scenery;
@@ -29,6 +30,7 @@ mod session;
 mod spotify;
 mod stage;
 mod structure;
+mod train;
 mod tuning;
 #[cfg(all(target_os = "macos", feature = "tap-app"))]
 mod tap_macos;
@@ -69,7 +71,8 @@ USO
   disktui --diagnostico     Prueba el modo Spotify paso a paso y dice qué falla
 
 OPCIONES
-  --escena <nombre>         auto (según el ánimo), jardin, sistema, oceano, ciudad o fogata
+  --escena <nombre>         auto (según el ánimo), jardin, sistema, oceano, ciudad,
+                            fogata, tren o fondo
   --fps <n>                 Cuadros por segundo (por defecto 60)
   --petalos <n>             Pétalos de la flor principal, 3 a 12 (por defecto según la canción)
   --flores <n>              Cantidad de flores, 1 a 3 (por defecto 3)
@@ -86,7 +89,7 @@ OPCIONES
 TECLAS
   q / Esc    salir          espacio   pausa
   + / -      volumen        h         mostrar u ocultar el HUD
-  e          cambiar de escena (automática / jardín / sistema solar / océano / ciudad / fogata)
+  e          cambiar de escena (automática y las siete escenas)
   g          grabar un GIF de 8 segundos en ~/Pictures/DiskTUI
   d          panel de detalles: qué entendió de la canción, la fuente de audio,
              los avisos completos y cómo corregir el ánimo
@@ -176,7 +179,7 @@ fn parse_args() -> Result<Args> {
                 let name = value("--escena")?;
                 args.scene = Some(
                     SceneChoice::parse(&name)
-                        .ok_or_else(|| anyhow::anyhow!("escena desconocida: {name} (usa auto, jardin, sistema, oceano, ciudad o fogata)"))?,
+                        .ok_or_else(|| anyhow::anyhow!("escena desconocida: {name} (usa auto, jardin, sistema, oceano, ciudad, fogata, tren o fondo)"))?,
                 );
             }
             "--velocidad" => {
@@ -555,7 +558,7 @@ fn run(
         let mood_now = wanted_mood.unwrap_or(heard_mood);
         if choice == SceneChoice::Auto && !chosen_for_track && (wanted_mood.is_some() || song.settled >= 0.95) {
             chosen_for_track = true;
-            let target = SceneKind::for_mood(mood_now);
+            let target = SceneKind::for_song(mood_now, SceneKind::salt(&current.artist, &current.title));
             if target != active {
                 // En la primera canción no hay nada que fundir: se cambia de inmediato.
                 let first = tracks_seen <= 1 && session.position().as_secs_f32() < 1.5;

@@ -151,6 +151,18 @@ impl Canvas {
         }
     }
 
+    /// Pinta el píxel opaco y tapa lo fino de su celda (puntos y glifos): para marcos que
+    /// van delante de todo.
+    pub fn solid(&mut self, x: i32, y: i32, c: Rgb) {
+        if let Some(i) = self.px_index(x, y) {
+            self.px[i] = c;
+            self.cover[i] = 1.0;
+            let cell = (y as usize / 2) * self.w + x as usize;
+            self.glyphs[cell] = None;
+            self.dots[cell] = 0;
+        }
+    }
+
     /// Pinta el píxel con transparencia, como parte del fondo: no cuenta como cobertura
     /// opaca, así que el trazo Braille se sigue viendo encima (cerros, luna).
     pub fn paint(&mut self, x: i32, y: i32, c: Rgb, alpha: f32) {

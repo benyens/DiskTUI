@@ -267,6 +267,8 @@ enum Command_ {
     Volume(i32),
     /// +1 siguiente, −1 anterior.
     Skip(i32),
+    /// Segundos a adelantar (negativo: retroceder).
+    Seek(f32),
 }
 
 enum Update {
@@ -303,6 +305,11 @@ fn spawn_poller(app: App, tx: Sender<Update>, commands: Receiver<Command_>, stop
                     osascript(&format!(
                         "tell application \"{name}\"\nset dtVolume to (sound volume) + ({})\nif dtVolume > 100 then set dtVolume to 100\nif dtVolume < 0 then set dtVolume to 0\nset sound volume to dtVolume\nend tell",
                         steps * 5
+                    ));
+                }
+                Ok(Command_::Seek(seconds)) => {
+                    osascript(&format!(
+                        "tell application \"{name}\"\nset dtTarget to (player position) + ({seconds})\nif dtTarget < 0 then set dtTarget to 0\nset player position to dtTarget\nend tell"
                     ));
                 }
                 Ok(Command_::Skip(direction)) => {
@@ -459,6 +466,14 @@ impl Session for SpotifySession {
 
     fn skip(&mut self, direction: i32) {
         let _ = self.commands.send(Command_::Skip(direction));
+    }
+
+    fn seek(&mut self, seconds: f32) {
+        let _ = self.commands.send(Command_::Seek(seconds));
+        // La barra salta de inmediato; la próxima consulta trae la posición real.
+        if let Some(n) = &mut self.now {
+            n.position = (n.position + seconds).max(0.0);
+        }
     }
 
     fn volume(&self) -> Option<f32> {

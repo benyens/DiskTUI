@@ -41,6 +41,8 @@ pub trait Session {
     fn toggle_pause(&mut self);
     /// Salta a la canción siguiente (+1) o anterior (−1), si la fuente lo permite.
     fn skip(&mut self, _direction: i32) {}
+    /// Adelanta (o retrocede, con negativo) `seconds` dentro de la canción.
+    fn seek(&mut self, _seconds: f32) {}
     /// `steps` positivo sube el volumen, negativo lo baja.
     fn change_volume(&mut self, steps: i32);
     /// Volumen 0..1, si la fuente lo conoce.

@@ -14,6 +14,7 @@ mod diagnose;
 mod features;
 mod garden;
 mod herbarium;
+mod idle;
 mod menu;
 mod meta;
 mod moment;
@@ -60,6 +61,9 @@ use scene::{Frame, SceneChoice, SceneKind};
 use stage::Stage;
 use session::Session;
 
+/// Segundos que saltan las flechas.
+const SEEK_STEP: f32 = 10.0;
+
 const HELP: &str = "\
 DiskTUI: tu música, creciendo en la terminal.
 
@@ -97,6 +101,7 @@ TECLAS
   d          panel de detalles: qué entendió de la canción, la fuente de audio,
              los avisos completos y cómo corregir el ánimo
   c          mostrar u ocultar la carátula
+  ← / →      retroceder / adelantar 10 segundos (archivo, Spotify, Apple Music)
   n / p      canción siguiente / anterior (Spotify y Apple Music)
   s          guardar una postal PNG en ~/Pictures/DiskTUI
   m          volver al menú
@@ -427,6 +432,8 @@ fn run(
     let mut tracks_seen = 0u32;
     let mut drop_moment = moment::DropMoment::default();
     let mut portrait = Canvas::new(0, 0);
+    let mut idle = idle::Idle::default();
+    let mut idle_canvas = Canvas::new(0, 0);
     // Panel de análisis y correcciones de ánimo guardadas por canción.
     let mut show_analysis = false;
     // Grabación de GIF en curso, y el guardado en segundo plano de la anterior.
@@ -469,6 +476,9 @@ fn run(
                         return Ok(RunEnd::Menu);
                     }
                     KeyCode::Char(' ') => session.toggle_pause(),
+                    // Con la captura del mouse activa, el scroll ya no llega como flechas.
+                    KeyCode::Right => session.seek(SEEK_STEP),
+                    KeyCode::Left => session.seek(-SEEK_STEP),
                     // Volumen en + y −, no en las flechas: en pantalla completa la terminal
                     // convierte el scroll del trackpad en flechas y el volumen se volvía loco.
                     KeyCode::Char('+') | KeyCode::Char('=') => session.change_volume(1),
@@ -648,6 +658,14 @@ fn run(
             canvas.crossfade(old, plant::smoothstep(0.0, 1.0, *t));
         }
         drop_moment.apply(&mut canvas, palette.accent.mix(color::Rgb::WHITE, 0.6));
+        // Sin música por un rato: la pantalla de espera.
+        idle.update(dt, session.playing());
+        if idle.level() > 0.0 {
+            idle_canvas.resize(canvas.w, canvas.h);
+            idle.draw(&mut idle_canvas, &palette);
+            idle_canvas.crossfade(&canvas, plant::smoothstep(0.0, 1.0, idle.level()));
+            std::mem::swap(&mut canvas, &mut idle_canvas);
+        }
         if show_cover && let Some(cover) = &cover {
             cover.draw(&mut canvas, render::SOIL_ROWS * 2 + 8, palette.accent);
         }

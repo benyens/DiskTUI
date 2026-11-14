@@ -191,6 +191,14 @@ impl Session for FileSession {
     fn finished(&self) -> bool {
         self.player.empty()
     }
+    fn seek(&mut self, seconds: f32) {
+        let total = self.info.duration.map(|d| d.as_secs_f32()).unwrap_or(f32::MAX);
+        let target = (self.player.get_pos().as_secs_f32() + seconds).clamp(0.0, (total - 0.5).max(0.0));
+        if self.player.try_seek(Duration::from_secs_f32(target)).is_ok() {
+            // Que el salto no cuente como si hubieran pasado clímax y secciones.
+            self.last_pos = target;
+        }
+    }
     fn toggle_pause(&mut self) {
         if self.player.is_paused() {
             self.player.play();

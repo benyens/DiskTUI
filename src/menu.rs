@@ -210,7 +210,7 @@ fn change(s: &mut Settings, row: Row, step: i32) {
             s.source = order[cycle(i, order.len())];
         }
         Row::File => {}
-        Row::Scene => s.scene = s.scene.next(),
+        Row::Scene => s.scene = s.scene.step(step),
         Row::Flowers => s.flowers = (cycle(s.flowers as usize - 1, 3) + 1) as u32,
         Row::Speed => {
             let i = SPEEDS

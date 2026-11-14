@@ -121,18 +121,6 @@ impl SceneKind {
         artist.bytes().chain([0]).chain(title.bytes()).fold(0xcbf2_9ce4_8422_2325u64, |h, b| (h ^ b as u64).wrapping_mul(0x0100_0000_01b3))
     }
 
-    pub fn next(self) -> Self {
-        match self {
-            SceneKind::Garden => SceneKind::Cosmos,
-            SceneKind::Cosmos => SceneKind::Ocean,
-            SceneKind::Ocean => SceneKind::City,
-            SceneKind::City => SceneKind::Campfire,
-            SceneKind::Campfire => SceneKind::Train,
-            SceneKind::Train => SceneKind::Reef,
-            SceneKind::Reef => SceneKind::Fireworks,
-            SceneKind::Fireworks => SceneKind::Garden,
-        }
-    }
 }
 
 /// Lo que elige el usuario: una escena fija, o que la elija la canción según su ánimo.
@@ -164,13 +152,29 @@ impl SceneChoice {
         }
     }
 
-    /// Recorre: automática y todas las escenas, y de vuelta.
+    /// Orden en que se recorren las opciones, en el menú y con la tecla `e`.
+    const ORDER: [SceneChoice; 9] = [
+        SceneChoice::Auto,
+        SceneChoice::Fixed(SceneKind::Garden),
+        SceneChoice::Fixed(SceneKind::Cosmos),
+        SceneChoice::Fixed(SceneKind::Ocean),
+        SceneChoice::Fixed(SceneKind::City),
+        SceneChoice::Fixed(SceneKind::Campfire),
+        SceneChoice::Fixed(SceneKind::Train),
+        SceneChoice::Fixed(SceneKind::Reef),
+        SceneChoice::Fixed(SceneKind::Fireworks),
+    ];
+
+    /// Avanza (`step` = 1) o retrocede (−1) en el orden, dando la vuelta en los extremos.
+    pub fn step(self, step: i32) -> Self {
+        let n = Self::ORDER.len() as i32;
+        let i = Self::ORDER.iter().position(|c| *c == self).unwrap_or(0) as i32;
+        Self::ORDER[(i + step).rem_euclid(n) as usize]
+    }
+
+    /// La siguiente: automática y todas las escenas, y de vuelta.
     pub fn next(self) -> Self {
-        match self {
-            SceneChoice::Auto => SceneChoice::Fixed(SceneKind::Garden),
-            SceneChoice::Fixed(SceneKind::Fireworks) => SceneChoice::Auto,
-            SceneChoice::Fixed(kind) => SceneChoice::Fixed(kind.next()),
-        }
+        self.step(1)
     }
 
     /// La escena a mostrar con este ánimo.
@@ -201,6 +205,18 @@ mod tests {
             assert_eq!(SceneChoice::parse(kind.key()), Some(SceneChoice::Fixed(kind)));
         }
         assert_eq!(SceneChoice::parse("auto"), Some(SceneChoice::Auto));
+
+        // Hacia atrás deshace lo de hacia adelante, también en los extremos.
+        for choice in SceneChoice::ORDER {
+            assert_eq!(choice.step(1).step(-1), choice);
+            assert_eq!(choice.step(-1).step(1), choice);
+        }
+        assert_eq!(SceneChoice::Auto.step(1), SceneChoice::Fixed(SceneKind::Garden));
+        assert_eq!(SceneChoice::Auto.step(-1), SceneChoice::Fixed(SceneKind::Fireworks));
+        // Todas las escenas están en el orden.
+        for kind in SceneKind::ALL {
+            assert!(SceneChoice::ORDER.contains(&SceneChoice::Fixed(kind)), "{kind:?}");
+        }
         assert_eq!(SceneChoice::parse("nada"), None);
     }
 

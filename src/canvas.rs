@@ -151,6 +151,11 @@ impl Canvas {
         }
     }
 
+    /// Color del píxel, o `None` fuera del lienzo.
+    pub fn pixel(&self, x: i32, y: i32) -> Option<Rgb> {
+        self.px_index(x, y).map(|i| self.px[i])
+    }
+
     /// Pinta el píxel opaco y tapa lo fino de su celda (puntos y glifos): para marcos que
     /// van delante de todo.
     pub fn solid(&mut self, x: i32, y: i32, c: Rgb) {

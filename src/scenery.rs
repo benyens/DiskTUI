@@ -702,6 +702,12 @@ impl Scenery {
     }
 
     /// Estrellas, luciérnagas y mariposas: van al final, sobre todo lo demás.
+    /// Solo la lluvia y los relámpagos, para escenas que dibujan su propio cielo.
+    pub fn draw_weather(&self, canvas: &mut Canvas, view: &View) {
+        self.draw_rain(canvas, view, self.presence());
+        self.draw_bolt(canvas, view);
+    }
+
     pub fn draw_front(&self, canvas: &mut Canvas, view: &View, pal: &Palette) {
         let k = self.presence();
         let b = &self.bands;

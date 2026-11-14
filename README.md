@@ -24,7 +24,7 @@ o nacer un sistema solar, con los colores de la carátula del disco.
 ## Qué hace
 
 - **La escena la elige la canción** (modo automático), o la fijas tú.
-- **Siete escenas**, que cambias en vivo con la tecla `e`:
+- **Ocho escenas**, que cambias en vivo con la tecla `e`:
   - 🌱 **Jardín.** Un brote sale de la tierra, crece como enredadera y florece. Dos flores
     más chicas lo acompañan. Alrededor: aurora, luna, cerros, flores silvestres,
     luciérnagas y mariposas.
@@ -40,6 +40,8 @@ o nacer un sistema solar, con los colores de la carátula del disco.
     el tren frena en una estación al final.
   - 🪼 **Fondo del mar.** Medusas que se impulsan con cada bombo, burbujas con los agudos
     y bioluminiscencia en los clímax.
+  - 🎆 **Fuegos artificiales.** Un festival de verano junto a un lago: los fuegos estallan
+    con el pulso y se reflejan en el agua, mientras dos siluetas miran desde la orilla.
 - **Reacciona a tres bandas**: graves, medios y agudos, más bombos y platillos detectados.
 - **Entiende el ánimo de la canción** y arma el clima según eso: sol si es alegre,
   atardecer si es serena, noche con luna si es nostálgica, lluvia si es triste, tormenta
@@ -70,6 +72,7 @@ o nacer un sistema solar, con los colores de la carátula del disco.
 <img src="docs/tren.png" alt="Escena tren nocturno" width="49%">
 <br><br>
 <img src="docs/fondo.png" alt="Escena fondo del mar" width="49%">
+<img src="docs/fuegos.png" alt="Escena fuegos artificiales junto a un lago" width="49%">
 <br><br>
 <img src="docs/climas.png" alt="El mismo jardín bajo cuatro ánimos: alegre, serena, triste e intensa" width="99%">
 <br>
@@ -146,7 +149,7 @@ También se puede saltar el menú desde la línea de comandos:
 
 | Tecla | Acción |
 | --- | --- |
-| `e` | Cambiar de escena: automática, jardín, sistema solar, océano, ciudad, fogata, tren, fondo del mar |
+| `e` | Cambiar de escena: automática, jardín, sistema solar, océano, ciudad, fogata, tren, fondo del mar, fuegos artificiales |
 | `←` / `→` | Retroceder / adelantar 10 segundos (archivo, Spotify, Apple Music) |
 | `g` | Grabar un GIF de 8 segundos en `~/Pictures/DiskTUI` (`g` otra vez lo corta antes) |
 | `v` | Grabar un GIF vertical (9:16) con carátula y título, para historias |
@@ -318,22 +321,36 @@ así que queda solo el destello.
 | Ánimo | De día entran rayos de luz; de noche solo brillan los animales; con tormenta, la superficie se agita |
 | Carátula | Color de las medusas |
 
+### 🎆 Fuegos artificiales
+
+| Señal | Qué hace |
+| --- | --- |
+| Avance de la canción | Pocos fuegos al empezar; en el último 10%, el gran final |
+| Pulso e intensidad | Lanzamientos: más seguidos cuanto más intensa la canción |
+| Bombo | Fuegos chicos |
+| Agudos | Más chispas que crepitan al apagarse |
+| **Clímax** | Una tanda de cinco fuegos grandes |
+| Cambio de sección | Un anillo |
+| Pulso | Los farolitos se mecen y laten |
+| Ánimo | Siempre de noche; con ánimos de día queda un resto de crepúsculo. La lluvia y el viento son los del jardín |
+| Carátula | Colores de los fuegos y de los farolitos |
+
 ### Escena automática
 
 Con la escena en *automática*, cada canción elige también dónde ocurre. Si un ánimo tiene
-dos escenas, cada canción se queda siempre con la misma:
+varias escenas, cada canción se queda siempre con la misma:
 
 | Ánimo | Escena |
 | --- | --- |
-| alegre | 🌸 jardín al sol |
+| alegre | 🌸 jardín al sol o 🎆 fuegos artificiales |
 | serena | 🔥 fogata al atardecer o 🪼 fondo del mar |
-| nostálgica | 🪐 sistema solar o 🚆 tren nocturno |
+| nostálgica | 🪐 sistema solar, 🚆 tren nocturno o 🎆 fuegos artificiales |
 | triste | ⛵ océano con lluvia o 🚆 tren bajo la lluvia |
 | intensa | 🌆 ciudad con tormenta |
 
 La elección se hace una vez por canción, cuando el análisis ya es fiable: de inmediato en
 modo archivo, a los ~20 segundos en Spotify. Las escenas se funden una en otra. La tecla
-`e` recorre automática y las siete escenas.
+`e` recorre automática y las ocho escenas.
 
 ### Cuando se equivoca
 
@@ -505,11 +522,12 @@ flowchart LR
 | `src/campfire.rs` | Escena fogata: fuego, chispas y pinos |
 | `src/train.rs` | Escena tren nocturno: paisaje, postes y estación |
 | `src/reef.rs` | Escena fondo del mar: medusas, burbujas y algas |
+| `src/fireworks.rs` | Escena fuegos artificiales: cohetes, estallidos, lago y farolitos |
 | `src/moment.rs` | El momento del drop |
 | `src/idle.rs` | Pantalla de espera |
 | `src/poster.rs` | Póster del herbario y resumen de la semana |
 | `src/text.rs` | Texto dentro de imágenes |
-| `src/stage.rs` | Las siete escenas juntas: avanzan a la vez |
+| `src/stage.rs` | Todas las escenas juntas: avanzan a la vez |
 | `src/tuning.rs` | Correcciones de ánimo por canción |
 | `src/herbarium.rs` | Herbario: guardado y vista de la colección |
 | `src/postcard.rs` | Postal PNG y grabación en GIF |

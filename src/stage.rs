@@ -7,6 +7,7 @@ use crate::campfire::Campfire;
 use crate::canvas::Canvas;
 use crate::city::City;
 use crate::cosmos::Cosmos;
+use crate::fireworks::Fireworks;
 use crate::garden::Garden;
 use crate::mood::Mood;
 use crate::ocean::Ocean;
@@ -23,6 +24,7 @@ pub struct Stage {
     campfire: Campfire,
     train: Train,
     reef: Reef,
+    fireworks: Fireworks,
     mood: Option<Mood>,
 }
 
@@ -36,6 +38,7 @@ impl Stage {
             campfire: Campfire::new(seed),
             train: Train::new(seed),
             reef: Reef::new(seed),
+            fireworks: Fireworks::new(seed),
             mood: None,
         }
     }
@@ -56,10 +59,20 @@ impl Stage {
         self.campfire.scenery.force_mood(mood);
         self.train.scenery.force_mood(mood);
         self.reef.scenery.force_mood(mood);
+        self.fireworks.scenery.force_mood(mood);
     }
 
-    fn all(&mut self) -> [&mut dyn Scene; 7] {
-        [&mut self.garden, &mut self.cosmos, &mut self.ocean, &mut self.city, &mut self.campfire, &mut self.train, &mut self.reef]
+    fn all(&mut self) -> [&mut dyn Scene; 8] {
+        [
+            &mut self.garden,
+            &mut self.cosmos,
+            &mut self.ocean,
+            &mut self.city,
+            &mut self.campfire,
+            &mut self.train,
+            &mut self.reef,
+            &mut self.fireworks,
+        ]
     }
 
     pub fn update(&mut self, frame: &Frame, w: usize, h: usize) {
@@ -88,6 +101,7 @@ impl Stage {
             SceneKind::Campfire => self.campfire.draw(canvas, pal),
             SceneKind::Train => self.train.draw(canvas, pal),
             SceneKind::Reef => self.reef.draw(canvas, pal),
+            SceneKind::Fireworks => self.fireworks.draw(canvas, pal),
         }
     }
 }

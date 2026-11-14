@@ -1,4 +1,4 @@
-//! Interfaz común de las escenas: el jardín, el sistema solar, el océano, la ciudad, la fogata, el tren y el fondo del mar.
+//! Interfaz común de las escenas: el jardín, el sistema solar, el océano, la ciudad, la fogata, el tren, el fondo del mar y los fuegos artificiales.
 
 use crate::analysis::Bands;
 use crate::canvas::Canvas;
@@ -33,12 +33,21 @@ pub enum SceneKind {
     Campfire,
     Train,
     Reef,
+    Fireworks,
 }
 
 impl SceneKind {
     #[cfg(test)]
-    const ALL: [SceneKind; 7] =
-        [SceneKind::Garden, SceneKind::Cosmos, SceneKind::Ocean, SceneKind::City, SceneKind::Campfire, SceneKind::Train, SceneKind::Reef];
+    const ALL: [SceneKind; 8] = [
+        SceneKind::Garden,
+        SceneKind::Cosmos,
+        SceneKind::Ocean,
+        SceneKind::City,
+        SceneKind::Campfire,
+        SceneKind::Train,
+        SceneKind::Reef,
+        SceneKind::Fireworks,
+    ];
 
     pub fn parse(name: &str) -> Option<Self> {
         match name.to_lowercase().as_str() {
@@ -48,6 +57,7 @@ impl SceneKind {
             "fogata" | "fuego" | "campamento" | "campfire" => Some(SceneKind::Campfire),
             "tren" | "train" | "tren nocturno" => Some(SceneKind::Train),
             "fondo" | "fondo del mar" | "submarino" | "acuario" | "reef" => Some(SceneKind::Reef),
+            "fuegos" | "fuegos artificiales" | "hanabi" | "lago" | "fireworks" => Some(SceneKind::Fireworks),
             "oceano" | "océano" | "mar" | "velero" | "ocean" => Some(SceneKind::Ocean),
             _ => None,
         }
@@ -63,6 +73,7 @@ impl SceneKind {
             SceneKind::Campfire => "fogata",
             SceneKind::Train => "tren nocturno",
             SceneKind::Reef => "fondo del mar",
+            SceneKind::Fireworks => "fuegos artificiales",
         }
     }
 
@@ -76,6 +87,7 @@ impl SceneKind {
             SceneKind::Campfire => "fogata",
             SceneKind::Train => "tren",
             SceneKind::Reef => "fondo",
+            SceneKind::Fireworks => "fuegos",
         }
     }
 
@@ -83,10 +95,10 @@ impl SceneKind {
     /// siempre; las demás se reparten entre canciones.
     pub fn for_mood_all(mood: Mood) -> &'static [SceneKind] {
         match mood {
-            Mood::Happy => &[SceneKind::Garden],
+            Mood::Happy => &[SceneKind::Garden, SceneKind::Fireworks],
             Mood::Serene => &[SceneKind::Campfire, SceneKind::Reef],
             Mood::Sad => &[SceneKind::Ocean, SceneKind::Train],
-            Mood::Nostalgic => &[SceneKind::Cosmos, SceneKind::Train],
+            Mood::Nostalgic => &[SceneKind::Cosmos, SceneKind::Train, SceneKind::Fireworks],
             Mood::Intense => &[SceneKind::City],
         }
     }
@@ -117,7 +129,8 @@ impl SceneKind {
             SceneKind::City => SceneKind::Campfire,
             SceneKind::Campfire => SceneKind::Train,
             SceneKind::Train => SceneKind::Reef,
-            SceneKind::Reef => SceneKind::Garden,
+            SceneKind::Reef => SceneKind::Fireworks,
+            SceneKind::Fireworks => SceneKind::Garden,
         }
     }
 }
@@ -155,7 +168,7 @@ impl SceneChoice {
     pub fn next(self) -> Self {
         match self {
             SceneChoice::Auto => SceneChoice::Fixed(SceneKind::Garden),
-            SceneChoice::Fixed(SceneKind::Reef) => SceneChoice::Auto,
+            SceneChoice::Fixed(SceneKind::Fireworks) => SceneChoice::Auto,
             SceneChoice::Fixed(kind) => SceneChoice::Fixed(kind.next()),
         }
     }
@@ -177,12 +190,12 @@ mod tests {
     fn choice_cycles_through_every_scene_and_back_to_auto() {
         let mut choice = SceneChoice::Auto;
         let mut seen = Vec::new();
-        for _ in 0..8 {
+        for _ in 0..9 {
             seen.push(choice);
             choice = choice.next();
         }
         assert_eq!(choice, SceneChoice::Auto);
-        assert_eq!(seen.len(), 8);
+        assert_eq!(seen.len(), 9);
         for kind in SceneKind::ALL {
             assert!(seen.contains(&SceneChoice::Fixed(kind)));
             assert_eq!(SceneChoice::parse(kind.key()), Some(SceneChoice::Fixed(kind)));

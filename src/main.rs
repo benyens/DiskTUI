@@ -12,6 +12,7 @@ mod cosmos;
 mod demo;
 mod diagnose;
 mod features;
+mod fireworks;
 mod garden;
 mod herbarium;
 mod idle;
@@ -78,7 +79,7 @@ USO
 
 OPCIONES
   --escena <nombre>         auto (según el ánimo), jardin, sistema, oceano, ciudad,
-                            fogata, tren o fondo
+                            fogata, tren, fondo o fuegos
   --fps <n>                 Cuadros por segundo (por defecto 60)
   --petalos <n>             Pétalos de la flor principal, 3 a 12 (por defecto según la canción)
   --flores <n>              Cantidad de flores, 1 a 3 (por defecto 3)
@@ -95,7 +96,7 @@ OPCIONES
 TECLAS
   q / Esc    salir          espacio   pausa
   + / -      volumen        h         mostrar u ocultar el HUD
-  e          cambiar de escena (automática y las siete escenas)
+  e          cambiar de escena (automática y las ocho escenas)
   g          grabar un GIF de 8 segundos en ~/Pictures/DiskTUI
   v          grabar un GIF vertical (9:16) con carátula y título, para historias
   d          panel de detalles: qué entendió de la canción, la fuente de audio,
@@ -187,7 +188,7 @@ fn parse_args() -> Result<Args> {
                 let name = value("--escena")?;
                 args.scene = Some(
                     SceneChoice::parse(&name)
-                        .ok_or_else(|| anyhow::anyhow!("escena desconocida: {name} (usa auto, jardin, sistema, oceano, ciudad, fogata, tren o fondo)"))?,
+                        .ok_or_else(|| anyhow::anyhow!("escena desconocida: {name} (usa auto, jardin, sistema, oceano, ciudad, fogata, tren, fondo o fuegos)"))?,
                 );
             }
             "--velocidad" => {

@@ -24,7 +24,7 @@ o nacer un sistema solar, con los colores de la carátula del disco.
 ## Qué hace
 
 - **La escena la elige la canción** (modo automático), o la fijas tú.
-- **Cinco escenas**, que cambias en vivo con la tecla `e`:
+- **Siete escenas**, que cambias en vivo con la tecla `e`:
   - 🌱 **Jardín.** Un brote sale de la tierra, crece como enredadera y florece. Dos flores
     más chicas lo acompañan. Alrededor: aurora, luna, cerros, flores silvestres,
     luciérnagas y mariposas.
@@ -36,12 +36,19 @@ o nacer un sistema solar, con los colores de la carátula del disco.
     siguen la música y los clímax lanzan fuegos artificiales.
   - 🔥 **Fogata.** Un claro del bosque con un fuego que arde al ritmo de la canción y
     queda en brasas al final.
+  - 🚆 **Tren nocturno.** El paisaje pasa por la ventana; un poste cruza en cada pulso y
+    el tren frena en una estación al final.
+  - 🪼 **Fondo del mar.** Medusas que se impulsan con cada bombo, burbujas con los agudos
+    y bioluminiscencia en los clímax.
 - **Reacciona a tres bandas**: graves, medios y agudos, más bombos y platillos detectados.
 - **Entiende el ánimo de la canción** y arma el clima según eso: sol si es alegre,
   atardecer si es serena, noche con luna si es nostálgica, lluvia si es triste, tormenta
-  si es intensa.
+  si es intensa. **Y cambia dentro de la canción**: el verso calma, el coro agita.
 - **Sigue el pulso**: estima el tempo y predice cada golpe, así la escena se mece al compás.
 - **Entiende los clímax**: sabe cuándo entra el coro o cae el drop, y la escena estalla.
+  En modo archivo, la escena contiene la respiración medio segundo antes.
+- **Transiciones suaves**: al cambiar de canción o de escena, una se funde en la otra.
+- **Pantalla de espera**: sin música por un rato, una animación tranquila.
 - **Una flor única por canción**, guardada en tu **herbario** cuando la escuchas entera.
 - **Colores de la carátula**: lee el arte del disco y arma la paleta con él.
 - **Barra de reproducción con la forma de la canción**: ves de antemano dónde vienen los
@@ -60,6 +67,9 @@ o nacer un sistema solar, con los colores de la carátula del disco.
 <img src="docs/ciudad.png" alt="Escena ciudad" width="49%">
 <br><br>
 <img src="docs/fogata.png" alt="Escena fogata" width="49%">
+<img src="docs/tren.png" alt="Escena tren nocturno" width="49%">
+<br><br>
+<img src="docs/fondo.png" alt="Escena fondo del mar" width="49%">
 <br><br>
 <img src="docs/climas.png" alt="El mismo jardín bajo cuatro ánimos: alegre, serena, triste e intensa" width="99%">
 <br>
@@ -136,8 +146,10 @@ También se puede saltar el menú desde la línea de comandos:
 
 | Tecla | Acción |
 | --- | --- |
-| `e` | Cambiar de escena: automática, jardín, sistema solar, océano, ciudad, fogata |
+| `e` | Cambiar de escena: automática, jardín, sistema solar, océano, ciudad, fogata, tren, fondo del mar |
+| `←` / `→` | Retroceder / adelantar 10 segundos (archivo, Spotify, Apple Music) |
 | `g` | Grabar un GIF de 8 segundos en `~/Pictures/DiskTUI` (`g` otra vez lo corta antes) |
+| `v` | Grabar un GIF vertical (9:16) con carátula y título, para historias |
 | `c` | Mostrar u ocultar la carátula |
 | `d` | Panel de detalles: qué entendió de la canción, la fuente de audio y los avisos completos. Con el panel abierto, `1`–`5` corrigen el ánimo y `0` lo devuelve a automático |
 | `n` / `p` | Canción siguiente / anterior (Spotify y Apple Music) |
@@ -248,6 +260,27 @@ muestra lo entendido: `96 BPM · La menor · nostálgica`.
 Es una heurística: acierta el carácter general de una canción, no sus matices. Si no te
 convence para un tema, `--animo` o la fila *Clima* del menú lo fijan a mano.
 
+### Dentro de la canción
+
+El ánimo es de la canción entera, pero el clima se mueve con cada parte. DiskTUI sigue la
+energía de la sección que suena (la intensidad suavizada en unos 5 segundos; un clímax
+entra de golpe) y lleva el clima hacia la versión más agitada o más calma del mismo ánimo:
+
+| Canción | Parte suave | Parte fuerte |
+| --- | --- | --- |
+| de valencia baja (triste, intensa) | lluvia calma | tormenta con viento |
+| de valencia alta (alegre, serena) | atardecer | sol pleno |
+
+<div align="center"><img src="docs/secciones.png" alt="Una canción triste y una alegre en su parte suave y en su parte fuerte" width="90%"></div>
+
+El panel de la tecla `d` muestra los dos: `triste (auto) · ahora intensa`.
+
+### Momento del drop
+
+En modo archivo, que conoce los clímax de antemano, la escena se frena y se apaga el último
+medio segundo antes de cada uno y lo suelta con un destello. En Spotify no hay aviso previo,
+así que queda solo el destello.
+
 ### 🔥 Fogata
 
 | Señal | Qué hace |
@@ -261,28 +294,53 @@ convence para un tema, `--animo` o la fila *Clima* del menú lo fijan a mano.
 | Ánimo | El mismo clima del jardín; el viento inclina las llamas |
 | Carátula | Color de las llamas y de la carpa |
 
+### 🚆 Tren nocturno
+
+| Señal | Qué hace |
+| --- | --- |
+| Avance de la canción | El tren sale al empezar y frena en una estación al final |
+| Tempo e intensidad | Velocidad del tren y del paisaje |
+| Pulso | Un poste del tendido cruza el centro de la ventana en cada golpe; sus aisladores brillan |
+| Medios | Luz de las casas a lo lejos |
+| **Clímax** | Pasa un pueblo iluminado |
+| Ánimo | El mismo clima del jardín, visto por la ventana |
+| Canción nueva | El vidrio se empaña y el viaje vuelve a empezar |
+
+### 🪼 Fondo del mar
+
+| Señal | Qué hace |
+| --- | --- |
+| Avance de la canción | Van apareciendo medusas, hasta seis |
+| Bombo | Las medusas se contraen y se impulsan hacia arriba |
+| Agudos y platillo | Burbujas |
+| Pulso y volumen | Vaivén de las algas |
+| **Clímax** | Todo se enciende con bioluminiscencia y cruza un cardumen |
+| Ánimo | De día entran rayos de luz; de noche solo brillan los animales; con tormenta, la superficie se agita |
+| Carátula | Color de las medusas |
+
 ### Escena automática
 
-Con la escena en *automática*, cada canción elige también dónde ocurre:
+Con la escena en *automática*, cada canción elige también dónde ocurre. Si un ánimo tiene
+dos escenas, cada canción se queda siempre con la misma:
 
 | Ánimo | Escena |
 | --- | --- |
 | alegre | 🌸 jardín al sol |
-| serena | 🔥 fogata al atardecer |
-| nostálgica | 🪐 sistema solar |
-| triste | ⛵ océano con lluvia |
+| serena | 🔥 fogata al atardecer o 🪼 fondo del mar |
+| nostálgica | 🪐 sistema solar o 🚆 tren nocturno |
+| triste | ⛵ océano con lluvia o 🚆 tren bajo la lluvia |
 | intensa | 🌆 ciudad con tormenta |
 
 La elección se hace una vez por canción, cuando el análisis ya es fiable: de inmediato en
-modo archivo, a los ~20 segundos en Spotify, con un fundido corto. La tecla `e` recorre
-automática → jardín → sistema solar → océano → ciudad → fogata.
+modo archivo, a los ~20 segundos en Spotify. Las escenas se funden una en otra. La tecla
+`e` recorre automática y las siete escenas.
 
 ### Cuando se equivoca
 
 La tecla `d` abre un panel con lo que DiskTUI midió: valencia, activación, tempo, tonalidad
 y la confianza de cada uno, más la fuente de audio y los avisos completos. Con el panel
-abierto, `1` a `5` fijan el ánimo de **esa canción** y `0` lo devuelve a automático. La corrección se recuerda para la próxima vez que
-suene.
+abierto, `1` a `5` fijan el ánimo de **esa canción** y `0` lo devuelve a automático. La
+corrección se recuerda para la próxima vez que suene.
 
 Las correcciones quedan en `~/.local/share/disktui/animos.tsv`, junto a lo que el análisis
 había medido. Ese archivo es la base para calibrar la heurística con música real.
@@ -299,8 +357,24 @@ Cuando escuchas al menos el 60% de una canción, su flor queda guardada. `disktu
 
 <div align="center"><img src="docs/herbario.png" alt="Herbario" width="80%"></div>
 
-La tecla `s` guarda la escena del momento como PNG en `~/Pictures/DiskTUI`, y `g` graba
-8 segundos como GIF en la misma carpeta.
+Arriba, un resumen de la semana: cuántas flores, el ánimo más escuchado y el BPM promedio.
+La tecla `p` guarda un **póster** PNG con todas las flores, su título, artista y fecha:
+
+<div align="center"><img src="docs/poster.png" alt="Póster del herbario" width="60%"></div>
+
+## Compartir
+
+Todo queda en `~/Pictures/DiskTUI`:
+
+| Tecla | Qué guarda |
+| --- | --- |
+| `s` | La escena del momento como PNG |
+| `g` | 8 segundos de la escena como GIF |
+| `v` | 8 segundos en vertical (9:16) con carátula, título y artista abajo, para historias |
+| `p` en el herbario | Póster con todas las flores |
+
+Si la canción termina o sales a mitad de una grabación, el GIF se guarda igual con lo
+grabado hasta ahí.
 
 ## Cómo detecta los clímax
 
@@ -429,7 +503,13 @@ flowchart LR
 | `src/ocean.rs` | Escena océano: mar, velero y faro |
 | `src/city.rs` | Escena ciudad: edificios, ventanas y fuegos artificiales |
 | `src/campfire.rs` | Escena fogata: fuego, chispas y pinos |
-| `src/stage.rs` | Las cinco escenas juntas: avanzan a la vez |
+| `src/train.rs` | Escena tren nocturno: paisaje, postes y estación |
+| `src/reef.rs` | Escena fondo del mar: medusas, burbujas y algas |
+| `src/moment.rs` | El momento del drop |
+| `src/idle.rs` | Pantalla de espera |
+| `src/poster.rs` | Póster del herbario y resumen de la semana |
+| `src/text.rs` | Texto dentro de imágenes |
+| `src/stage.rs` | Las siete escenas juntas: avanzan a la vez |
 | `src/tuning.rs` | Correcciones de ánimo por canción |
 | `src/herbarium.rs` | Herbario: guardado y vista de la colección |
 | `src/postcard.rs` | Postal PNG y grabación en GIF |
@@ -465,6 +545,5 @@ archivos de audio reales solo corren si defines `DISKTUI_TEST_MEDIA`; sin ella s
 ## Ideas
 
 - Más escenas: bosque nevado, desierto.
-- Póster con todo el herbario.
 - Binario precompilado en los releases, para instalar sin compilar.
-- Seek y listas de reproducción en modo archivo.
+- Listas de reproducción en modo archivo.

@@ -2,20 +2,24 @@
 
 # 🌸 DiskTUI
 
-**Tu música, creciendo en la terminal.**
+**Tu música, convertida en paisaje dentro de la terminal.**
 
-Un visualizador de audio para macOS escrito en Rust. Cada canción hace brotar un jardín
-o nacer un sistema solar, con los colores de la carátula del disco.
+Un visualizador de audio para macOS escrito en Rust. Escucha la canción, entiende su
+ánimo y la convierte en una escena viva: un jardín que florece, fuegos artificiales sobre
+un lago, un tren de noche, medusas en el fondo del mar. Todo con los colores de la
+carátula.
 
 ![Rust](https://img.shields.io/badge/Rust-1.89%2B-orange?logo=rust)
 ![macOS](https://img.shields.io/badge/macOS-Apple%20Silicon%20%7C%20Intel-lightgrey?logo=apple)
 ![TUI](https://img.shields.io/badge/TUI-ratatui-blue)
 ![100% local](https://img.shields.io/badge/audio-100%25%20local-green)
+![Vibecoded](https://img.shields.io/badge/vibecoded-con%20Claude-8A2BE2)
 
-<img src="docs/jardin.gif" alt="Jardín creciendo durante una canción" width="49%">
-<img src="docs/sistema.gif" alt="Sistema solar formándose durante una canción" width="49%">
+<img src="docs/escenas.gif" alt="Las ocho escenas de DiskTUI, una tras otra" width="90%">
 
-<sub>Una canción completa en 8 segundos. Imágenes generadas desde la salida real del programa (`--demo`).</sub>
+<sub>Las ocho escenas, generadas desde la salida real del programa (`--demo`).</sub>
+
+**[Instalar](#instalación) · [Usar](#uso) · [Escenas](#escenas) · [Cómo entiende la canción](#cómo-entiende-la-canción) · [Vibecoded](#hecho-con-vibe-coding)**
 
 </div>
 
@@ -23,58 +27,36 @@ o nacer un sistema solar, con los colores de la carátula del disco.
 
 ## Qué hace
 
-- **La escena la elige la canción** (modo automático), o la fijas tú.
-- **Ocho escenas**, que cambias en vivo con la tecla `e`:
-  - 🌱 **Jardín.** Un brote sale de la tierra, crece como enredadera y florece. Dos flores
-    más chicas lo acompañan. Alrededor: aurora, luna, cerros, flores silvestres,
-    luciérnagas y mariposas.
-  - 🪐 **Sistema solar.** Primero aparecen estrellas, después se enciende un sol, después
-    nacen entre 4 y 7 planetas al azar, con anillos, lunas y un cinturón de asteroides.
-  - ⛵ **Océano.** Un velero cruza el mar durante la canción y llega al faro al final.
-    El oleaje sigue a los graves y el cielo se refleja en el agua.
-  - 🌆 **Ciudad.** Los edificios se levantan de a uno durante la canción. Las ventanas
-    siguen la música y los clímax lanzan fuegos artificiales.
-  - 🔥 **Fogata.** Un claro del bosque con un fuego que arde al ritmo de la canción y
-    queda en brasas al final.
-  - 🚆 **Tren nocturno.** El paisaje pasa por la ventana; un poste cruza en cada pulso y
-    el tren frena en una estación al final.
-  - 🪼 **Fondo del mar.** Medusas que se impulsan con cada bombo, burbujas con los agudos
-    y bioluminiscencia en los clímax.
-  - 🎆 **Fuegos artificiales.** Un festival de verano junto a un lago: los fuegos estallan
-    con el pulso y se reflejan en el agua, mientras dos siluetas miran desde la orilla.
-- **Reacciona a tres bandas**: graves, medios y agudos, más bombos y platillos detectados.
-- **Entiende el ánimo de la canción** y arma el clima según eso: sol si es alegre,
-  atardecer si es serena, noche con luna si es nostálgica, lluvia si es triste, tormenta
-  si es intensa. **Y cambia dentro de la canción**: el verso calma, el coro agita.
-- **Sigue el pulso**: estima el tempo y predice cada golpe, así la escena se mece al compás.
-- **Entiende los clímax**: sabe cuándo entra el coro o cae el drop, y la escena estalla.
-  En modo archivo, la escena contiene la respiración medio segundo antes.
-- **Transiciones suaves**: al cambiar de canción o de escena, una se funde en la otra.
-- **Pantalla de espera**: sin música por un rato, una animación tranquila.
-- **Una flor única por canción**, guardada en tu **herbario** cuando la escuchas entera.
-- **Colores de la carátula**: lee el arte del disco y arma la paleta con él.
-- **Barra de reproducción con la forma de la canción**: ves de antemano dónde vienen los
-  clímax.
-- **Carátula en pantalla**, opcional: tecla `c`, `--caratula` o la fila *Carátula* del menú.
-- **Archivos locales, Spotify o Apple Music**: mp3, flac, wav, ogg, m4a, o lo que suene en
-  la app.
-- **100% local.** Sin APIs ni cuentas. La única llamada de red es bajar la carátula en
+- 🎭 **Entiende el ánimo de la canción** (alegre, serena, nostálgica, triste, intensa) y
+  elige escena y clima: sol, atardecer, noche, lluvia o tormenta. El clima cambia dentro de
+  la canción: el verso calma, el coro agita.
+- 🥁 **Sigue el pulso**: estima el tempo y predice cada golpe; la escena se mece al compás.
+- 💥 **Siente los clímax**: sabe cuándo entra el coro o cae el drop, y la escena estalla.
+- 🌼 **Una flor única por canción**, guardada en tu **herbario**, con póster para compartir.
+- 🎨 **Colores de la carátula** en todo: pétalos, velas, fuegos, medusas.
+- 🎧 **Spotify, Apple Music o archivos** (mp3, flac, wav, ogg, m4a).
+- 📸 **Para compartir**: postal PNG, GIF, y GIF vertical con título para historias.
+- 🔒 **100% local.** Sin APIs ni cuentas. La única llamada de red es bajar la carátula en
   modo Spotify.
 
+## Escenas
+
+| | |
+| :---: | :---: |
+| <img src="docs/jardin.png" alt="Jardín"> | <img src="docs/fuegos.png" alt="Fuegos artificiales"> |
+| 🌱 **Jardín** · un brote sale de la tierra y florece | 🎆 **Fuegos artificiales** · un festival de verano junto al lago |
+| <img src="docs/oceano.png" alt="Océano"> | <img src="docs/tren.png" alt="Tren nocturno"> |
+| ⛵ **Océano** · un velero cruza el mar hasta el faro | 🚆 **Tren nocturno** · un poste cruza la ventana en cada pulso |
+| <img src="docs/fondo.png" alt="Fondo del mar"> | <img src="docs/fogata.png" alt="Fogata"> |
+| 🪼 **Fondo del mar** · medusas que laten con el bombo | 🔥 **Fogata** · arde al ritmo y queda en brasas al final |
+| <img src="docs/sistema.png" alt="Sistema solar"> | <img src="docs/ciudad.png" alt="Ciudad"> |
+| 🪐 **Sistema solar** · estrellas, un sol y planetas al azar | 🌆 **Ciudad** · edificios que suben y ventanas que siguen la música |
+
+Con la escena en *automática* (el valor por defecto), cada canción elige la suya según su
+ánimo. La tecla `e` las recorre a mano.
+
 <div align="center">
-<img src="docs/jardin.png" alt="Escena jardín" width="49%">
-<img src="docs/sistema.png" alt="Escena sistema solar" width="49%">
-<br><br>
-<img src="docs/oceano.png" alt="Escena océano" width="49%">
-<img src="docs/ciudad.png" alt="Escena ciudad" width="49%">
-<br><br>
-<img src="docs/fogata.png" alt="Escena fogata" width="49%">
-<img src="docs/tren.png" alt="Escena tren nocturno" width="49%">
-<br><br>
-<img src="docs/fondo.png" alt="Escena fondo del mar" width="49%">
-<img src="docs/fuegos.png" alt="Escena fuegos artificiales junto a un lago" width="49%">
-<br><br>
-<img src="docs/climas.png" alt="El mismo jardín bajo cuatro ánimos: alegre, serena, triste e intensa" width="99%">
+<img src="docs/climas.png" alt="El mismo jardín bajo cuatro ánimos: alegre, serena, triste e intensa" width="90%">
 <br>
 <sub>El mismo jardín con cuatro ánimos: alegre, serena, triste e intensa.</sub>
 </div>
@@ -135,7 +117,7 @@ También se puede saltar el menú desde la línea de comandos:
 
 | Opción | Efecto |
 | --- | --- |
-| `--escena <nombre>` | `auto` (por defecto: la elige el ánimo), `jardin`, `sistema`, `oceano`, `ciudad` o `fogata` |
+| `--escena <nombre>` | `auto` (por defecto: la elige el ánimo), `jardin`, `sistema`, `oceano`, `ciudad`, `fogata`, `tren`, `fondo` o `fuegos` |
 | `--flores <n>` | Flores del jardín, de 1 a 3. Por defecto 3 |
 | `--petalos <n>` | Pétalos de la flor principal, de 3 a 12 |
 | `--velocidad <x>` | Qué tan rápido crece la escena. `2` = el doble. Por defecto 1 |
@@ -181,55 +163,6 @@ También se puede saltar el menú desde la línea de comandos:
   derecha aparece un aviso corto. El detalle completo y la fuente de audio están en el panel
   de la tecla `d`.
 - En terminales de menos de 16 filas queda una sola línea. `h` lo oculta entero.
-
-## Qué mueve cada cosa
-
-| Señal | 🌱 Jardín | 🪐 Sistema solar |
-| --- | --- | --- |
-| Avance de la canción | Altura del tallo; llega arriba pasada la mitad | Estrellas (0–20%), sol (5–20%), planetas (20–68%) |
-| Graves, 20–250 Hz | Aceleran el crecimiento, mecen el tallo, ondas en la tierra | El sol late |
-| Bombo | Brota una hoja, sube un pulso de luz | Una onda sale del sol e ilumina las órbitas |
-| Medios, 250–4000 Hz | Abren la flor y la hacen girar | Los planetas giran más rápido |
-| Agudos, 4–20 kHz | Tamaño de la flor, polen | Las estrellas titilan |
-| Platillo | Chispas, destella una luciérnaga | Nace una estrella, otra destella, a veces cruza un cometa |
-| Volumen | Resplandor de la flor, halo de la luna | Corona del sol |
-| Intensidad | Aurora en el cielo, brillo del fondo, polen, luciérnagas | Nebulosas, largo de las estelas, velocidad |
-| **Clímax** | La flor se abre de golpe y suelta pétalos y chispas | Onda de choque y lluvia de cometas |
-| Carátula | Pétalos, pistilo y tallo | Sol, planetas y nebulosas |
-| Pulso | Vaivén de los tallos, latido de las flores | Latido del sol |
-| Ánimo | Cielo, clima y velocidad de crecimiento | Espacio frío o cálido, velocidad de las órbitas; lluvia de estrellas si es triste, erupciones del sol si es intensa |
-| Cambio de sección | Ráfaga de viento | — |
-
-### ⛵ Océano
-
-Un velero zarpa al empezar la canción y llega al faro cuando termina.
-
-| Señal | Qué hace |
-| --- | --- |
-| Avance de la canción | El velero cruza el mar; las velas se despliegan al zarpar |
-| Graves | Levantan el oleaje y mecen el velero |
-| Bombo | Espuma en la proa |
-| Agudos | Destellos en el agua |
-| Pulso | Hincha las velas, hace latir el faro y el farol del mástil |
-| **Clímax** | Salta un cardumen de peces |
-| Cambio de sección | Salta un pez |
-| Ánimo | El mismo clima del jardín: sol, atardecer, luna, lluvia o tormenta, con su reflejo en el agua. Con tormenta el mar se pica |
-| Carátula | Velas, franjas del faro y banderín |
-
-### 🌆 Ciudad
-
-| Señal | Qué hace |
-| --- | --- |
-| Avance de la canción | Los edificios suben de a uno; la ciudad queda completa pasada la mitad |
-| Graves, medios, agudos | Brillo de las ventanas de los pisos bajos, medios y altos |
-| Intensidad | Cuántas ventanas hay encendidas |
-| Platillo | Ventanas que se prenden y apagan |
-| Pulso | Balizas rojas de las antenas, latido de las ventanas |
-| Volumen y tempo | Velocidad del tránsito |
-| **Clímax** | Fuegos artificiales |
-| Cambio de sección | Un fuego artificial suelto |
-| Ánimo | El mismo clima del jardín; con lluvia la calle se moja |
-| Canción nueva | La ciudad se hunde y se arma otra distinta |
 
 ## Cómo entiende la canción
 
@@ -283,57 +216,6 @@ El panel de la tecla `d` muestra los dos: `triste (auto) · ahora intensa`.
 En modo archivo, que conoce los clímax de antemano, la escena se frena y se apaga el último
 medio segundo antes de cada uno y lo suelta con un destello. En Spotify no hay aviso previo,
 así que queda solo el destello.
-
-### 🔥 Fogata
-
-| Señal | Qué hace |
-| --- | --- |
-| Avance de la canción | El fuego prende al empezar y queda en brasas al final |
-| Graves e intensidad | Altura de las llamas |
-| Agudos y platillo | Chispas |
-| Bombo | Avivan el fuego un instante |
-| Pulso | La luz del fuego late sobre los pinos, la carpa y el pasto |
-| **Clímax** | Llamarada y una nube de chispas |
-| Ánimo | El mismo clima del jardín; el viento inclina las llamas |
-| Carátula | Color de las llamas y de la carpa |
-
-### 🚆 Tren nocturno
-
-| Señal | Qué hace |
-| --- | --- |
-| Avance de la canción | El tren sale al empezar y frena en una estación al final |
-| Tempo e intensidad | Velocidad del tren y del paisaje |
-| Pulso | Un poste del tendido cruza el centro de la ventana en cada golpe; sus aisladores brillan |
-| Medios | Luz de las casas a lo lejos |
-| **Clímax** | Pasa un pueblo iluminado |
-| Ánimo | El mismo clima del jardín, visto por la ventana |
-| Canción nueva | El vidrio se empaña y el viaje vuelve a empezar |
-
-### 🪼 Fondo del mar
-
-| Señal | Qué hace |
-| --- | --- |
-| Avance de la canción | Van apareciendo medusas, hasta seis |
-| Bombo | Las medusas se contraen y se impulsan hacia arriba |
-| Agudos y platillo | Burbujas |
-| Pulso y volumen | Vaivén de las algas |
-| **Clímax** | Todo se enciende con bioluminiscencia y cruza un cardumen |
-| Ánimo | De día entran rayos de luz; de noche solo brillan los animales; con tormenta, la superficie se agita |
-| Carátula | Color de las medusas |
-
-### 🎆 Fuegos artificiales
-
-| Señal | Qué hace |
-| --- | --- |
-| Avance de la canción | Pocos fuegos al empezar; en el último 10%, el gran final |
-| Pulso e intensidad | Lanzamientos: más seguidos cuanto más intensa la canción |
-| Bombo | Fuegos chicos |
-| Agudos | Más chispas que crepitan al apagarse |
-| **Clímax** | Una tanda de cinco fuegos grandes |
-| Cambio de sección | Un anillo |
-| Pulso | Los farolitos se mecen y laten |
-| Ánimo | Siempre de noche; con ánimos de día queda un resto de crepúsculo. La lluvia y el viento son los del jardín |
-| Carátula | Colores de los fuegos y de los farolitos |
 
 ### Escena automática
 
@@ -392,6 +274,131 @@ Todo queda en `~/Pictures/DiskTUI`:
 
 Si la canción termina o sales a mitad de una grabación, el GIF se guarda igual con lo
 grabado hasta ahí.
+
+## Qué mueve cada cosa
+
+Cada escena traduce las mismas señales a su manera.
+
+<details>
+<summary><b>🌱 Jardín y 🪐 Sistema solar</b></summary>
+
+| Señal | 🌱 Jardín | 🪐 Sistema solar |
+| --- | --- | --- |
+| Avance de la canción | Altura del tallo; llega arriba pasada la mitad | Estrellas (0–20%), sol (5–20%), planetas (20–68%) |
+| Graves, 20–250 Hz | Aceleran el crecimiento, mecen el tallo, ondas en la tierra | El sol late |
+| Bombo | Brota una hoja, sube un pulso de luz | Una onda sale del sol e ilumina las órbitas |
+| Medios, 250–4000 Hz | Abren la flor y la hacen girar | Los planetas giran más rápido |
+| Agudos, 4–20 kHz | Tamaño de la flor, polen | Las estrellas titilan |
+| Platillo | Chispas, destella una luciérnaga | Nace una estrella, otra destella, a veces cruza un cometa |
+| Volumen | Resplandor de la flor, halo de la luna | Corona del sol |
+| Intensidad | Aurora en el cielo, brillo del fondo, polen, luciérnagas | Nebulosas, largo de las estelas, velocidad |
+| **Clímax** | La flor se abre de golpe y suelta pétalos y chispas | Onda de choque y lluvia de cometas |
+| Carátula | Pétalos, pistilo y tallo | Sol, planetas y nebulosas |
+| Pulso | Vaivén de los tallos, latido de las flores | Latido del sol |
+| Ánimo | Cielo, clima y velocidad de crecimiento | Espacio frío o cálido, velocidad de las órbitas; lluvia de estrellas si es triste, erupciones del sol si es intensa |
+| Cambio de sección | Ráfaga de viento | — |
+
+</details>
+
+<details>
+<summary><b>⛵ Océano</b></summary>
+
+Un velero zarpa al empezar la canción y llega al faro cuando termina.
+
+| Señal | Qué hace |
+| --- | --- |
+| Avance de la canción | El velero cruza el mar; las velas se despliegan al zarpar |
+| Graves | Levantan el oleaje y mecen el velero |
+| Bombo | Espuma en la proa |
+| Agudos | Destellos en el agua |
+| Pulso | Hincha las velas, hace latir el faro y el farol del mástil |
+| **Clímax** | Salta un cardumen de peces |
+| Cambio de sección | Salta un pez |
+| Ánimo | El mismo clima del jardín: sol, atardecer, luna, lluvia o tormenta, con su reflejo en el agua. Con tormenta el mar se pica |
+| Carátula | Velas, franjas del faro y banderín |
+
+</details>
+
+<details>
+<summary><b>🌆 Ciudad</b></summary>
+
+| Señal | Qué hace |
+| --- | --- |
+| Avance de la canción | Los edificios suben de a uno; la ciudad queda completa pasada la mitad |
+| Graves, medios, agudos | Brillo de las ventanas de los pisos bajos, medios y altos |
+| Intensidad | Cuántas ventanas hay encendidas |
+| Platillo | Ventanas que se prenden y apagan |
+| Pulso | Balizas rojas de las antenas, latido de las ventanas |
+| Volumen y tempo | Velocidad del tránsito |
+| **Clímax** | Fuegos artificiales |
+| Cambio de sección | Un fuego artificial suelto |
+| Ánimo | El mismo clima del jardín; con lluvia la calle se moja |
+| Canción nueva | La ciudad se hunde y se arma otra distinta |
+
+</details>
+
+<details>
+<summary><b>🔥 Fogata</b></summary>
+
+| Señal | Qué hace |
+| --- | --- |
+| Avance de la canción | El fuego prende al empezar y queda en brasas al final |
+| Graves e intensidad | Altura de las llamas |
+| Agudos y platillo | Chispas |
+| Bombo | Avivan el fuego un instante |
+| Pulso | La luz del fuego late sobre los pinos, la carpa y el pasto |
+| **Clímax** | Llamarada y una nube de chispas |
+| Ánimo | El mismo clima del jardín; el viento inclina las llamas |
+| Carátula | Color de las llamas y de la carpa |
+
+</details>
+
+<details>
+<summary><b>🚆 Tren nocturno</b></summary>
+
+| Señal | Qué hace |
+| --- | --- |
+| Avance de la canción | El tren sale al empezar y frena en una estación al final |
+| Tempo e intensidad | Velocidad del tren y del paisaje |
+| Pulso | Un poste del tendido cruza el centro de la ventana en cada golpe; sus aisladores brillan |
+| Medios | Luz de las casas a lo lejos |
+| **Clímax** | Pasa un pueblo iluminado |
+| Ánimo | El mismo clima del jardín, visto por la ventana |
+| Canción nueva | El vidrio se empaña y el viaje vuelve a empezar |
+
+</details>
+
+<details>
+<summary><b>🪼 Fondo del mar</b></summary>
+
+| Señal | Qué hace |
+| --- | --- |
+| Avance de la canción | Van apareciendo medusas, hasta seis |
+| Bombo | Las medusas se contraen y se impulsan hacia arriba |
+| Agudos y platillo | Burbujas |
+| Pulso y volumen | Vaivén de las algas |
+| **Clímax** | Todo se enciende con bioluminiscencia y cruza un cardumen |
+| Ánimo | De día entran rayos de luz; de noche solo brillan los animales; con tormenta, la superficie se agita |
+| Carátula | Color de las medusas |
+
+</details>
+
+<details>
+<summary><b>🎆 Fuegos artificiales</b></summary>
+
+| Señal | Qué hace |
+| --- | --- |
+| Avance de la canción | Pocos fuegos al empezar; en el último 10%, el gran final |
+| Pulso e intensidad | Lanzamientos: más seguidos cuanto más intensa la canción |
+| Bombo | Fuegos chicos |
+| Agudos | Más chispas que crepitan al apagarse |
+| **Clímax** | Una tanda de cinco fuegos grandes |
+| Cambio de sección | Un anillo |
+| Pulso | Los farolitos se mecen y laten |
+| Ánimo | Siempre de noche; con ánimos de día queda un resto de crepúsculo. La lluvia y el viento son los del jardín |
+| Carátula | Colores de los fuegos y de los farolitos |
+
+</details>
 
 ## Cómo detecta los clímax
 
@@ -550,14 +557,33 @@ Cubren la FFT por banda, bombos, clímax (en tiempo real y pre-analizado), el cr
 jardín, el orden de aparición del sistema solar, la paleta y el lienzo. Los tests con
 archivos de audio reales solo corren si defines `DISKTUI_TEST_MEDIA`; sin ella se saltan.
 
+## Hecho con vibe coding
+
+DiskTUI es un proyecto **vibecoded**: nació y creció conversando con
+[Claude](https://claude.ai), el asistente de Anthropic. La idea, las decisiones, qué
+probar y qué cambiar vinieron de [@benyens](https://github.com/benyens); el código lo
+escribió Claude a partir de esa conversación, una idea a la vez: la flor primero, después
+Spotify, el sistema solar, el ánimo, el herbario y el resto de las escenas.
+
+Lo que eso implica, para quien lo lea:
+
+- El código no se escribió a mano línea por línea. Está revisado con tests, `clippy` y
+  probándolo, pero puede tener rincones raros.
+- Cada parte se verificó como se pudo: tests automáticos, capturas de cada escena y uso
+  real en un Mac. El [estado](#estado) dice qué está probado de verdad y qué no.
+- Si encuentras algo que no funciona, abre un issue.
+
 ## Estado
 
-- **Demo, render y modo Spotify:** probados en macOS con Ghostty.
-- **Modo archivo:** cubierto por tests con archivos reales (decodificación, bombos, clímax,
-  tempo, carátula) y por una prueba de la cadena completa en tiempo real.
+- **Probado en macOS con Ghostty:** demo, render, menú, modo Spotify (captura solo de la
+  app, carátula, cambio de canción), escenas jardín, sistema solar, océano y ciudad.
+- **Escrito y probado solo con tests y capturas, todavía sin uso real en macOS:** escena
+  automática, panel de detalles, fogata, tren, fondo del mar, fuegos artificiales, ánimo por
+  sección, transiciones, momento del drop, póster, GIF vertical, flechas y pantalla de
+  espera.
 - **Pulso, tonalidad y ánimo:** probados con audio sintético de tempo y acordes conocidos
   (tempo dentro de ±2 BPM, golpes a menos de 60 ms). Con música real pueden fallar, sobre
-  todo el ánimo; para eso está `--animo`.
+  todo el ánimo; para eso están `--animo` y las correcciones de la tecla `d`.
 - **Apple Music y la fórmula de Homebrew:** escritos sin poder ejecutarlos. Experimentales.
 
 ## Ideas

@@ -204,6 +204,16 @@ impl Cover {
         Some(Cover { side: Self::SIDE as usize, px })
     }
 
+    /// La miniatura como imagen de `size`×`size` píxeles, con bordes nítidos.
+    pub fn to_image(&self, size: u32) -> image::RgbImage {
+        let mut img = image::RgbImage::new(self.side as u32, self.side as u32);
+        for (i, c) in self.px.iter().enumerate() {
+            let (r, g, b) = c.to_u8();
+            img.put_pixel((i % self.side) as u32, (i / self.side) as u32, image::Rgb([r, g, b]));
+        }
+        image::imageops::resize(&img, size, size, image::imageops::FilterType::Nearest)
+    }
+
     /// Color medio del bloque de la miniatura que cae en la celda (`i`, `j`) de una
     /// cuadrícula de `n`×`n`.
     fn sample(&self, i: usize, j: usize, n: usize) -> Rgb {

@@ -93,6 +93,7 @@ TECLAS
   + / -      volumen        h         mostrar u ocultar el HUD
   e          cambiar de escena (automática y las siete escenas)
   g          grabar un GIF de 8 segundos en ~/Pictures/DiskTUI
+  v          grabar un GIF vertical (9:16) con carátula y título, para historias
   d          panel de detalles: qué entendió de la canción, la fuente de audio,
              los avisos completos y cómo corregir el ánimo
   c          mostrar u ocultar la carátula
@@ -425,6 +426,7 @@ fn run(
     let mut song_fade: Option<(Canvas, f32)> = None;
     let mut tracks_seen = 0u32;
     let mut drop_moment = moment::DropMoment::default();
+    let mut portrait = Canvas::new(0, 0);
     // Panel de análisis y correcciones de ánimo guardadas por canción.
     let mut show_analysis = false;
     // Grabación de GIF en curso, y el guardado en segundo plano de la anterior.
@@ -455,11 +457,17 @@ fn run(
                     continue;
                 }
                 match key.code {
-                    KeyCode::Char('q') | KeyCode::Esc => return Ok(RunEnd::Quit),
+                    KeyCode::Char('q') | KeyCode::Esc => {
+                        finish_gif(recording.take(), gif_job.take());
+                        return Ok(RunEnd::Quit);
+                    }
                     KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => {
                         return Ok(RunEnd::Quit);
                     }
-                    KeyCode::Char('m') => return Ok(RunEnd::Menu),
+                    KeyCode::Char('m') => {
+                        finish_gif(recording.take(), gif_job.take());
+                        return Ok(RunEnd::Menu);
+                    }
                     KeyCode::Char(' ') => session.toggle_pause(),
                     // Volumen en + y −, no en las flechas: en pantalla completa la terminal
                     // convierte el scroll del trackpad en flechas y el volumen se volvía loco.
@@ -487,6 +495,16 @@ fn run(
                         } else {
                             recording = Some(postcard::Recording::new(&current.artist, &current.title));
                             format!("● grabando GIF ({:.0} s) · g para cortar antes", postcard::GIF_SECONDS)
+                        };
+                        notice = Some((text, Instant::now()));
+                    }
+                    KeyCode::Char('v') => {
+                        let text = if recording.is_some() || gif_job.is_some() {
+                            "ya hay un GIF en curso".to_string()
+                        } else {
+                            let caption = postcard::Caption::new(cover.as_ref(), &palette);
+                            recording = Some(postcard::Recording::vertical(&current.artist, &current.title, caption));
+                            format!("● grabando GIF vertical ({:.0} s) · g para cortar antes", postcard::GIF_SECONDS)
                         };
                         notice = Some((text, Instant::now()));
                     }
@@ -590,7 +608,8 @@ fn run(
         if session.finished() {
             let t = outro.get_or_insert(0.0);
             *t += dt;
-            if *t > 4.0 {
+            // Si hay un GIF grabándose o guardándose, se espera a que termine.
+            if *t > 4.0 && recording.is_none() && gif_job.is_none() {
                 collect(&current, listened, &song, &stage.garden, &target_palette);
                 return Ok(if args.from_menu { RunEnd::Menu } else { RunEnd::Quit });
             }
@@ -632,7 +651,15 @@ fn run(
         if show_cover && let Some(cover) = &cover {
             cover.draw(&mut canvas, render::SOIL_ROWS * 2 + 8, palette.accent);
         }
-        if recording.as_mut().is_some_and(|rec| rec.capture(&canvas, dt)) {
+        // El GIF vertical se dibuja aparte, en su propio lienzo de 9:16.
+        let vertical = recording.as_ref().is_some_and(postcard::Recording::is_vertical);
+        if vertical {
+            portrait.resize(postcard::VERTICAL.0, postcard::VERTICAL.1);
+            stage.draw(active, &mut portrait, &palette);
+            drop_moment.apply(&mut portrait, palette.accent.mix(color::Rgb::WHITE, 0.6));
+        }
+        let shot = if vertical { &portrait } else { &canvas };
+        if recording.as_mut().is_some_and(|rec| rec.capture(shot, dt)) {
             gif_job = recording.take().map(postcard::Recording::finish);
             notice = Some(("guardando el GIF…".to_string(), Instant::now()));
         }
@@ -715,6 +742,14 @@ fn worth_collecting(track: &session::TrackInfo, listened: f32) -> bool {
 }
 
 /// Simula el demo hasta `secs` y devuelve un cuadro como texto con colores ANSI.
+/// Al salir con un GIF a medias: lo grabado hasta ahí se guarda igual, y se espera a que
+/// termine de escribirse.
+fn finish_gif(recording: Option<postcard::Recording>, job: Option<std::sync::mpsc::Receiver<Result<std::path::PathBuf>>>) {
+    for job in recording.map(postcard::Recording::finish).into_iter().chain(job) {
+        let _ = job.recv();
+    }
+}
+
 fn dump_frame(secs: f32, w: u16, h: u16, args: &Args) -> String {
     use ratatui::style::Color;
     let mut session = demo::DemoSession::new(75.0);

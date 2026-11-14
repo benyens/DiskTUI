@@ -79,7 +79,7 @@ mod tests {
         // La tilde dibuja algo distinto de la letra sin tilde.
         assert_ne!(glyph('ó'), glyph('o'));
         assert_ne!(glyph('ñ'), [0; 8]);
-        assert_eq!(fit("una canción muy larga", 80, 1), "una ca...");
+        assert_eq!(fit("una canción muy larga", 80, 1), "una can...");
         assert_eq!(fit("corta", 80, 1), "corta");
         // Fuera de la imagen no entra en pánico.
         draw(&mut img, -50, -50, "fuera", Rgb::WHITE, 3);

@@ -6,6 +6,9 @@ use std::sync::mpsc;
 use anyhow::{Context, Result, anyhow};
 
 use crate::canvas::Canvas;
+use crate::color::Rgb;
+use crate::palette::{Cover, Palette};
+use crate::text;
 
 /// Deja solo caracteres seguros para un nombre de archivo.
 pub fn file_stem(artist: &str, title: &str) -> String {
@@ -47,18 +50,73 @@ const GIF_FPS: f32 = 10.0;
 /// Ancho máximo del GIF en píxeles; los lienzos más anchos se reducen a la mitad.
 const GIF_MAX_WIDTH: u32 = 720;
 
+/// Lienzo para el GIF vertical, en celdas: con la franja del título queda en 9:16.
+pub const VERTICAL: (usize, usize) = (54, 40);
+/// Alto de la franja del título en el GIF vertical, en píxeles.
+const CAPTION_HEIGHT: u32 = 128;
+
+/// Franja de abajo del GIF vertical: carátula, título y artista.
+pub struct Caption {
+    cover: Option<image::RgbImage>,
+    background: Rgb,
+    title_color: Rgb,
+    artist_color: Rgb,
+}
+
+impl Caption {
+    pub fn new(cover: Option<&Cover>, pal: &Palette) -> Self {
+        let background = pal.bg_bottom.scale(0.6);
+        Caption {
+            cover: cover.map(|c| c.to_image(96)),
+            background,
+            title_color: background.mix(Rgb::WHITE, 0.92),
+            artist_color: background.mix(Rgb::WHITE, 0.55),
+        }
+    }
+
+    /// Pega la franja bajo la imagen de la escena.
+    fn compose(&self, scene: &image::RgbImage, artist: &str, title: &str) -> image::RgbImage {
+        let (w, h) = (scene.width(), scene.height());
+        let (r, g, b) = self.background.to_u8();
+        let mut img = image::RgbImage::from_pixel(w, h + CAPTION_HEIGHT, image::Rgb([r, g, b]));
+        image::imageops::replace(&mut img, scene, 0, 0);
+        let mut x = 16i64;
+        if let Some(cover) = &self.cover {
+            image::imageops::replace(&mut img, cover, 16, (h + 16) as i64);
+            x += cover.width() as i64 + 16;
+        }
+        let room = w.saturating_sub(x as u32 + 12);
+        text::draw(&mut img, x, (h + 30) as i64, &text::fit(title, room, 2), self.title_color, 2);
+        text::draw(&mut img, x, (h + 60) as i64, &text::fit(artist, room, 1), self.artist_color, 1);
+        text::draw(&mut img, x, (h + 96) as i64, "DiskTUI", self.artist_color.mix(self.background, 0.4), 1);
+        img
+    }
+}
+
 /// Grabación en curso: junta cuadros de la escena para armar un GIF.
 pub struct Recording {
     frames: Vec<image::RgbaImage>,
     clock: f32,
     artist: String,
     title: String,
+    /// GIF vertical: franja con el título bajo la escena.
+    caption: Option<Caption>,
 }
 
 impl Recording {
     pub fn new(artist: &str, title: &str) -> Self {
         // El primer cuadro se toma de inmediato.
-        Recording { frames: Vec::new(), clock: 1.0 / GIF_FPS, artist: artist.into(), title: title.into() }
+        Recording { frames: Vec::new(), clock: 1.0 / GIF_FPS, artist: artist.into(), title: title.into(), caption: None }
+    }
+
+    /// GIF vertical (9:16) con carátula, título y artista abajo. La escena se dibuja en un
+    /// lienzo de [`VERTICAL`] celdas.
+    pub fn vertical(artist: &str, title: &str, caption: Caption) -> Self {
+        Recording { caption: Some(caption), ..Recording::new(artist, title) }
+    }
+
+    pub fn is_vertical(&self) -> bool {
+        self.caption.is_some()
     }
 
     /// Toma un cuadro si ya toca. Devuelve `true` cuando la grabación está completa.
@@ -66,7 +124,10 @@ impl Recording {
         self.clock += dt;
         if self.clock >= 1.0 / GIF_FPS {
             self.clock -= 1.0 / GIF_FPS;
-            let full = canvas.to_image();
+            let mut full = canvas.to_image();
+            if let Some(caption) = &self.caption {
+                full = caption.compose(&full, &self.artist, &self.title);
+            }
             // Todos los cuadros deben medir lo mismo: si la ventana cambió, se corta ahí.
             let (w, h) = if full.width() > GIF_MAX_WIDTH { (full.width() / 2, full.height() / 2) } else { full.dimensions() };
             if self.frames.first().is_some_and(|first| first.dimensions() != (w, h)) {
@@ -82,7 +143,8 @@ impl Recording {
     pub fn finish(self) -> mpsc::Receiver<Result<PathBuf>> {
         let (tx, rx) = mpsc::channel();
         std::thread::spawn(move || {
-            let result = target(&self.artist, &self.title, "gif").and_then(|path| {
+            let name = if self.caption.is_some() { format!("{} (vertical)", self.title) } else { self.title.clone() };
+            let result = target(&self.artist, &name, "gif").and_then(|path| {
                 encode_gif(self.frames, &path)?;
                 Ok(path)
             });
@@ -153,5 +215,18 @@ mod tests {
         assert!(!recording.capture(&Canvas::new(20, 6), 0.2));
         assert!(recording.capture(&Canvas::new(30, 6), 0.2));
         assert_eq!(recording.frames.len(), 1);
+    }
+
+    #[test]
+    fn vertical_gif_is_nine_by_sixteen_with_the_caption() {
+        let mut canvas = Canvas::new(VERTICAL.0, VERTICAL.1);
+        canvas.clear(|_, _| Rgb(0.2, 0.3, 0.5));
+        let mut recording = Recording::vertical("Banda", "Una canción", Caption::new(None, &Palette::default()));
+        recording.capture(&canvas, 1.0);
+        let frame = &recording.frames[0];
+        assert_eq!(frame.width() * 16, frame.height() * 9, "{}x{}", frame.width(), frame.height());
+        // La franja de abajo no es la escena: tiene el fondo del pie y texto.
+        let caption_row: Vec<_> = (0..frame.width()).map(|x| frame.get_pixel(x, frame.height() - 90)).collect();
+        assert!(caption_row.iter().any(|p| p[0] > 200), "no hay texto en la franja");
     }
 }

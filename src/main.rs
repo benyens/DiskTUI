@@ -87,7 +87,8 @@ TECLAS
   + / -      volumen        h         mostrar u ocultar el HUD
   e          cambiar de escena (automática / jardín / sistema solar / océano / ciudad / fogata)
   g          grabar un GIF de 8 segundos en ~/Pictures/DiskTUI
-  d          panel de análisis: qué entendió de la canción y cómo corregir el ánimo
+  d          panel de detalles: qué entendió de la canción, la fuente de audio,
+             los avisos completos y cómo corregir el ánimo
   c          mostrar u ocultar la carátula
   n / p      canción siguiente / anterior (Spotify y Apple Music)
   s          guardar una postal PNG en ~/Pictures/DiskTUI
@@ -490,7 +491,7 @@ fn run(
                     KeyCode::Char('p') => session.skip(-1),
                     KeyCode::Char('s') => {
                         let text = match postcard::save(&canvas, &current.artist, &current.title) {
-                            Ok(path) => format!("postal guardada: {}", path.display()),
+                            Ok(_) => "postal guardada en ~/Pictures/DiskTUI".to_string(),
                             Err(e) => format!("no se pudo guardar la postal: {e:#}"),
                         };
                         notice = Some((text, Instant::now()));
@@ -607,7 +608,7 @@ fn run(
         if let Some(result) = gif_job.as_ref().and_then(|job| job.try_recv().ok()) {
             gif_job = None;
             let text = match result {
-                Ok(path) => format!("GIF guardado: {}", path.display()),
+                Ok(_) => "GIF guardado en ~/Pictures/DiskTUI".to_string(),
                 Err(e) => format!("no se pudo guardar el GIF: {e:#}"),
             };
             notice = Some((text, Instant::now()));
@@ -639,7 +640,15 @@ fn run(
                 } else {
                     "auto"
                 };
-                let analysis = ui::Analysis { song: &song, mood: mood_now, origin, pal: &palette, mode };
+                let analysis = ui::Analysis {
+                    song: &song,
+                    mood: mood_now,
+                    origin,
+                    source: session.label(),
+                    warning: session.warning().map(|w| w.detail),
+                    pal: &palette,
+                    mode,
+                };
                 ui::draw_analysis(frame.buffer_mut(), plant_area, &analysis);
             }
         })?;

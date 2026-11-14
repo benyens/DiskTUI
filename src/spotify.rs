@@ -15,7 +15,7 @@ use anyhow::{Result, anyhow};
 use crate::analysis::{self, Bands};
 use crate::capture::{self, Capture, CaptureOptions};
 use crate::palette::{Cover, Palette};
-use crate::session::{Session, Tick, TrackInfo, drain_bands};
+use crate::session::{Session, Tick, TrackInfo, Warning, drain_bands};
 
 /// App de música que se visualiza.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -332,6 +332,8 @@ pub struct SpotifySession {
     /// Segundos seguidos reproduciendo sin que llegue señal.
     silent_for: f32,
     started: Instant,
+    /// Último error de AppleScript (casi siempre, falta el permiso de Automatización).
+    script_error: Option<String>,
 }
 
 impl SpotifySession {
@@ -362,6 +364,7 @@ impl SpotifySession {
             current_id: String::new(),
             silent_for: 0.0,
             started: Instant::now(),
+            script_error: None,
         })
     }
 }
@@ -392,16 +395,22 @@ impl Session for SpotifySession {
                                 duration: n.duration,
                                 known: true,
                             };
+                            self.script_error = None;
                         }
                         Ok(None) => {
                             self.info = TrackInfo {
-                                title: format!("{} cerrado o sin canción", self.app.display()),
+                                title: format!("{} sin canción", self.app.display()),
                                 ..TrackInfo::default()
                             };
+                            self.script_error = None;
                         }
-                        // El error real a la vista: casi siempre es el permiso de Automatización.
+                        // El error completo va al panel de detalles; el título queda corto.
                         Err(e) => {
-                            self.info = TrackInfo { title: format!("AppleScript: {e}"), ..TrackInfo::default() };
+                            self.info = TrackInfo {
+                                title: format!("Sin datos de {}", self.app.display()),
+                                ..TrackInfo::default()
+                            };
+                            self.script_error = Some(e.clone());
                         }
                     }
                     self.now = state.ok().flatten();
@@ -460,17 +469,31 @@ impl Session for SpotifySession {
         format!("{} · {}", self.app.display(), self.capture.label)
     }
 
-    fn warning(&self) -> Option<String> {
+    fn warning(&self) -> Option<Warning> {
+        let app = self.app.display();
         // Con Spotify en volumen 0 el silencio es esperable: el tap captura después del
         // control de volumen de la app. No es un problema de permisos.
         let muted = self.volume().is_some_and(|v| v < 0.03);
         if self.silent_for > 4.0 && muted {
-            Some(format!("{} está en volumen 0: sube con +", self.app.display()))
+            Some(Warning::new("volumen 0", format!("{app} está en volumen 0. Sube el volumen con +.")))
         } else if self.silent_for > 4.0 {
-            Some("sin señal: revisa el permiso de audio del sistema (README)".into())
-        } else if self.started.elapsed() < Duration::from_secs(8) {
-            // El aviso de arranque se muestra unos segundos y luego deja ver el tiempo.
-            self.capture.note.clone()
+            Some(Warning::new(
+                "sin señal",
+                format!(
+                    "{app} está sonando pero no llega audio. Revisa el permiso de grabación de audio \
+                     del sistema para la terminal (README, sección Modo Spotify) o prueba \
+                     `disktui --diagnostico`."
+                ),
+            ))
+        } else if let Some(e) = &self.script_error {
+            Some(Warning::new(
+                "sin datos",
+                format!("No se pudo leer la canción de {app}. AppleScript respondió: {e}"),
+            ))
+        } else if let Some(note) = &self.capture.note {
+            // El aviso de arranque se ve en el reproductor solo si es un problema.
+            let early = self.started.elapsed() < Duration::from_secs(8);
+            Some(if early && note.starts_with("No hubo señal") { Warning::new("sin señal", note.clone()) } else { Warning::quiet(note.clone()) })
         } else {
             None
         }

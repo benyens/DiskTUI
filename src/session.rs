@@ -53,8 +53,8 @@ pub trait Session {
     fn song_map(&self) -> Option<&SongMap> {
         None
     }
-    /// Aviso para el HUD (por ejemplo, captura sin señal).
-    fn warning(&self) -> Option<String> {
+    /// Aviso de la fuente (por ejemplo, captura sin señal).
+    fn warning(&self) -> Option<Warning> {
         None
     }
 
@@ -62,6 +62,26 @@ pub trait Session {
     fn progress(&self) -> Option<f32> {
         let total = self.track().duration?.as_secs_f32();
         (total > 0.0).then(|| (self.position().as_secs_f32() / total).clamp(0.0, 1.0))
+    }
+}
+
+/// Aviso de la fuente de audio. El reproductor muestra solo `short`; el texto completo va
+/// al panel de detalles (tecla `d`).
+#[derive(Clone, Debug, PartialEq)]
+pub struct Warning {
+    /// Dos o tres palabras para el reproductor. `None`: solo se ve en el panel.
+    pub short: Option<String>,
+    pub detail: String,
+}
+
+impl Warning {
+    pub fn new(short: &str, detail: impl Into<String>) -> Self {
+        Warning { short: Some(short.into()), detail: detail.into() }
+    }
+
+    /// Información que no merece interrumpir: solo en el panel.
+    pub fn quiet(detail: impl Into<String>) -> Self {
+        Warning { short: None, detail: detail.into() }
     }
 }
 

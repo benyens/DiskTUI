@@ -159,20 +159,44 @@ pub struct Analysis<'a> {
     /// Ánimo en uso y de dónde sale: "auto", "corregido" o "fijo".
     pub mood: Mood,
     pub origin: &'a str,
+    /// De dónde viene el audio, por ejemplo "Spotify · solo la app".
+    pub source: String,
+    /// Aviso completo de la fuente, si hay.
+    pub warning: Option<String>,
     pub pal: &'a Palette,
     pub mode: ColorMode,
 }
 
 const PANEL_WIDTH: u16 = 46;
-const PANEL_HEIGHT: u16 = 9;
+const PANEL_HEIGHT: u16 = 10;
+/// Líneas máximas para el aviso dentro del panel.
+const PANEL_WARNING_LINES: usize = 4;
+
+/// Corta `text` en líneas de a lo más `width` caracteres, por palabras.
+fn wrap(text: &str, width: usize) -> Vec<String> {
+    let mut lines: Vec<String> = Vec::new();
+    for word in text.split_whitespace() {
+        match lines.last_mut() {
+            Some(line) if line.chars().count() + 1 + word.chars().count() <= width => {
+                line.push(' ');
+                line.push_str(word);
+            }
+            _ => lines.push(word.chars().take(width).collect()),
+        }
+    }
+    lines
+}
 
 /// Panel de análisis, arriba a la derecha: qué entendió DiskTUI de la canción y cómo
 /// corregirlo. No se dibuja si no cabe.
 pub fn draw_analysis(buf: &mut Buffer, area: Rect, a: &Analysis) {
-    if area.width < PANEL_WIDTH + 2 || area.height < PANEL_HEIGHT + 1 {
+    let mut notes = a.warning.as_deref().map(|w| wrap(w, PANEL_WIDTH as usize - 2)).unwrap_or_default();
+    notes.truncate(PANEL_WARNING_LINES);
+    let height = PANEL_HEIGHT + notes.len() as u16 + u16::from(!notes.is_empty());
+    if area.width < PANEL_WIDTH + 2 || area.height < height + 1 {
         return;
     }
-    let panel = Rect { x: area.right() - PANEL_WIDTH - 1, y: area.y + 1, width: PANEL_WIDTH, height: PANEL_HEIGHT };
+    let panel = Rect { x: area.right() - PANEL_WIDTH - 1, y: area.y + 1, width: PANEL_WIDTH, height };
     let bg = a.pal.bg_bottom.scale(0.45);
     let dim = bg.mix(Rgb::WHITE, 0.45);
     let bright = bg.mix(Rgb::WHITE, 0.90);
@@ -203,8 +227,13 @@ pub fn draw_analysis(buf: &mut Buffer, area: Rect, a: &Analysis) {
         put(buf, panel, a.mode, 1, 1 + i as u16, label, dim);
         put(buf, panel, a.mode, 13, 1 + i as u16, value, bright);
     }
-    put(buf, panel, a.mode, 1, 7, "corregir: 1 alegre  2 serena  3 nostálgica", dim);
-    put(buf, panel, a.mode, 1, 8, "          4 triste  5 intensa  0 auto", dim);
+    put(buf, panel, a.mode, 1, 7, "fuente", dim);
+    put(buf, panel, a.mode, 13, 7, &a.source, bright);
+    put(buf, panel, a.mode, 1, 8, "corregir: 1 alegre  2 serena  3 nostálgica", dim);
+    put(buf, panel, a.mode, 1, 9, "          4 triste  5 intensa  0 auto", dim);
+    for (i, line) in notes.iter().enumerate() {
+        put(buf, panel, a.mode, 1, PANEL_HEIGHT + 1 + i as u16, line, a.pal.accent);
+    }
 }
 
 /// Escribe `text` desde la columna `x` de la fila `y`, sin tocar el fondo de las celdas.
@@ -234,9 +263,10 @@ fn draw_full(buf: &mut Buffer, area: Rect, hud: &Hud) {
         }
     }
 
-    // Fila 1: título y artista a la izquierda; escena, fuente y volumen a la derecha.
+    // Fila 1: título y artista a la izquierda; lo entendido, escena y volumen a la derecha.
     let track = session.track();
-    let (right, right_color) = match hud.notice.map(str::to_string).or_else(|| session.warning()) {
+    let alert = session.warning().and_then(|w| w.short).map(|short| format!("{short} · d para detalles"));
+    let (right, right_color) = match hud.notice.map(str::to_string).or(alert) {
         Some(warning) => (warning, pal.accent),
         None => {
             let scene = if hud.auto_scene { format!("{} (auto)", hud.scene.name()) } else { hud.scene.name().to_string() };
@@ -255,7 +285,7 @@ fn draw_full(buf: &mut Buffer, area: Rect, hud: &Hud) {
             } else if session.playing() && hud.scene == SceneKind::Garden {
                 text.push_str("escuchando…  │  ");
             }
-            text.push_str(&format!("{scene} · {}", session.label()));
+            text.push_str(&scene);
             if let Some(v) = session.volume() {
                 text.push_str(&format!(" · vol {:.0}%", v * 100.0));
             }
@@ -350,11 +380,11 @@ fn draw_compact(buf: &mut Buffer, area: Rect, session: &dyn Session, pal: &Palet
         buf[(area.x + x as u16, area.y)].set_char(' ').set_style(Style::new().bg(mode.color(cell_bg)));
     }
 
-    // Derecha: aviso o tiempo, estado, volumen y fuente.
+    // Derecha: aviso corto, o tiempo, estado y volumen.
     let track = session.track();
     let mut right = String::new();
-    if let Some(warning) = session.warning() {
-        right.push_str(&warning);
+    if let Some(short) = session.warning().and_then(|w| w.short) {
+        right.push_str(&format!("{short} · d"));
     } else {
         right.push_str(&clock(session.position()));
         if let Some(total) = track.duration {
@@ -364,7 +394,6 @@ fn draw_compact(buf: &mut Buffer, area: Rect, session: &dyn Session, pal: &Palet
         if let Some(v) = session.volume() {
             right.push_str(&format!("  vol {:.0}%", v * 100.0));
         }
-        right.push_str(&format!("  {}", session.label()));
     }
     let right = fit(&right, width.saturating_sub(2) / 2 + 8);
     let right_w = Span::raw(right.as_str()).width();
@@ -455,6 +484,80 @@ mod tests {
             let hud = Hud { session: &session, pal: &pal, mode: ColorMode::True, timeline: &timeline, bands: &bands, scene: SceneKind::Garden, auto_scene: false, notice: None };
             draw(&mut buf, area, &hud);
         }
+    }
+
+    /// Sesión de prueba con un aviso y una fuente de nombre largo.
+    struct Noisy(crate::demo::DemoSession);
+
+    impl Session for Noisy {
+        fn tick(&mut self, dt: f32) -> crate::session::Tick {
+            self.0.tick(dt)
+        }
+        fn track(&self) -> &crate::session::TrackInfo {
+            self.0.track()
+        }
+        fn position(&self) -> Duration {
+            self.0.position()
+        }
+        fn playing(&self) -> bool {
+            true
+        }
+        fn finished(&self) -> bool {
+            false
+        }
+        fn toggle_pause(&mut self) {}
+        fn change_volume(&mut self, _: i32) {}
+        fn label(&self) -> String {
+            "Spotify · solo la app".into()
+        }
+        fn warning(&self) -> Option<crate::session::Warning> {
+            Some(crate::session::Warning::new("sin señal", "No llega audio: revisa el permiso de grabación de audio del sistema."))
+        }
+    }
+
+    fn text_of(buf: &Buffer) -> String {
+        let area = buf.area;
+        (0..area.height).flat_map(|y| (0..area.width).map(move |x| (x, y))).map(|(x, y)| buf[(x, y)].symbol().to_string()).collect()
+    }
+
+    #[test]
+    fn player_shows_a_short_warning_and_no_capture_details() {
+        let session = Noisy(crate::demo::DemoSession::new(60.0));
+        let (pal, timeline, bands) = (Palette::default(), Timeline::new(), Bands::default());
+        for rows in [3u16, 1] {
+            let area = Rect::new(0, 0, 160, rows);
+            let mut buf = Buffer::empty(area);
+            let hud = Hud { session: &session, pal: &pal, mode: ColorMode::True, timeline: &timeline, bands: &bands, scene: SceneKind::Garden, auto_scene: false, notice: None };
+            draw(&mut buf, area, &hud);
+            let text = text_of(&buf);
+            assert!(text.contains("sin señal"), "{rows} filas: {text}");
+            assert!(!text.contains("solo la app"), "la fuente no va en el reproductor");
+            assert!(!text.contains("permiso"), "el detalle no va en el reproductor");
+        }
+
+        // El panel de detalles sí lo muestra todo.
+        let area = Rect::new(0, 0, 120, 30);
+        let mut buf = Buffer::empty(area);
+        let song = crate::features::Song::default();
+        let analysis = Analysis {
+            song: &song,
+            mood: Mood::Happy,
+            origin: "auto",
+            source: session.label(),
+            warning: session.warning().map(|w| w.detail),
+            pal: &pal,
+            mode: ColorMode::True,
+        };
+        draw_analysis(&mut buf, area, &analysis);
+        let text = text_of(&buf);
+        assert!(text.contains("solo la app") && text.contains("permiso"), "{text}");
+    }
+
+    #[test]
+    fn wrap_breaks_on_words() {
+        assert_eq!(wrap("uno dos tres cuatro", 8), ["uno dos", "tres", "cuatro"]);
+        assert_eq!(wrap("", 8), Vec::<String>::new());
+        assert_eq!(wrap("palabramuylarga", 5), ["palab"]);
     }
 
     #[test]

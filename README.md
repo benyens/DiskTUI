@@ -139,7 +139,7 @@ También se puede saltar el menú desde la línea de comandos:
 | `e` | Cambiar de escena: automática, jardín, sistema solar, océano, ciudad, fogata |
 | `g` | Grabar un GIF de 8 segundos en `~/Pictures/DiskTUI` (`g` otra vez lo corta antes) |
 | `c` | Mostrar u ocultar la carátula |
-| `d` | Panel de análisis: qué entendió de la canción. Con el panel abierto, `1`–`5` corrigen el ánimo y `0` lo devuelve a automático |
+| `d` | Panel de detalles: qué entendió de la canción, la fuente de audio y los avisos completos. Con el panel abierto, `1`–`5` corrigen el ánimo y `0` lo devuelve a automático |
 | `n` / `p` | Canción siguiente / anterior (Spotify y Apple Music) |
 | `s` | Guardar una postal PNG en `~/Pictures/DiskTUI` |
 | `m` | Volver al menú |
@@ -151,7 +151,7 @@ También se puede saltar el menú desde la línea de comandos:
 ## HUD
 
 ```
- ♪ Título — Artista                                  jardín · archivo · vol 80%
+ ♪ Título — Artista              96 BPM · La menor · nostálgica  │  jardín · vol 80%
               ▂▄▆███████▇▅▃                 ▃▅▇██████████
  ▶ 1:23 ▁▁▁▂▃▅██████████████▇▅▃▂▁▁▁▁▁▁▁▂▃▅▇██████████████▇▅▂▁ 3:45  G▆ M▄ A▂
 ```
@@ -162,6 +162,9 @@ También se puede saltar el menú desde la línea de comandos:
 - **Modo archivo:** la onda completa aparece al abrir, porque la canción se pre-analiza.
 - **Spotify y demo:** la onda se va dibujando a medida que suena.
 - **`G` `M` `A`:** medidores de graves, medios y agudos.
+- **Avisos.** Si algo falla (sin señal, volumen 0, sin datos de la canción), arriba a la
+  derecha aparece un aviso corto. El detalle completo y la fuente de audio están en el panel
+  de la tecla `d`.
 - En terminales de menos de 16 filas queda una sola línea. `h` lo oculta entero.
 
 ## Qué mueve cada cosa
@@ -277,8 +280,8 @@ automática → jardín → sistema solar → océano → ciudad → fogata.
 ### Cuando se equivoca
 
 La tecla `d` abre un panel con lo que DiskTUI midió: valencia, activación, tempo, tonalidad
-y la confianza de cada uno. Con el panel abierto, `1` a `5` fijan el ánimo de **esa
-canción** y `0` lo devuelve a automático. La corrección se recuerda para la próxima vez que
+y la confianza de cada uno, más la fuente de audio y los avisos completos. Con el panel
+abierto, `1` a `5` fijan el ánimo de **esa canción** y `0` lo devuelve a automático. La corrección se recuerda para la próxima vez que
 suene.
 
 Las correcciones quedan en `~/.local/share/disktui/animos.tsv`, junto a lo que el análisis
@@ -347,9 +350,10 @@ disktui --diagnostico
 Tarda unos 10 segundos y deja el reporte en `disktui-diagnostico.txt`. Qué hacer según el
 resultado:
 
-1. **El título muestra `AppleScript: ...` o `[1]` da ERROR.** Falta el permiso de
+1. **El título dice `Sin datos de Spotify` o `[1]` da ERROR.** Falta el permiso de
    Automatización: Ajustes del Sistema → Privacidad y seguridad → Automatización → tu
-   terminal → Spotify. Sin esto no hay título, carátula ni cambio de canción.
+   terminal → Spotify. Sin esto no hay título, carátula ni cambio de canción. El panel de
+   la tecla `d` muestra el error exacto de AppleScript.
 2. **`[3]` dice SILENCIO en todos.** Falta el permiso de audio: Ajustes del Sistema →
    Privacidad y seguridad → Grabación de pantalla y audio del sistema → sección de solo
    audio del sistema. Agrega tu terminal con `+`, actívala, ciérrala por completo y

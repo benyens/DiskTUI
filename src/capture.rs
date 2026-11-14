@@ -126,7 +126,7 @@ pub fn open(opts: &CaptureOptions) -> Result<Capture> {
                 let (_, peak) = capture.listen(Duration::from_millis(1200), true);
                 if peak > SIGNAL_FLOOR {
                     if !silent.is_empty() || !failed.is_empty() {
-                        capture.note = Some(format!("usando {method}"));
+                        capture.note = Some(format!("Los otros métodos no dieron señal; se usa {method}."));
                     }
                     return Ok(capture);
                 }
@@ -139,7 +139,7 @@ pub fn open(opts: &CaptureOptions) -> Result<Capture> {
     // Ninguno dio señal (¿música en pausa?, ¿falta el permiso?): queda el preferido.
     if let Some(method) = silent.first() {
         let mut capture = start_method(method, opts.bundle_prefix)?;
-        capture.note = Some("sin señal al iniciar; prueba `disktui --diagnostico`".into());
+        capture.note = Some("No hubo señal al iniciar. Si la música está sonando, prueba `disktui --diagnostico`.".into());
         return Ok(capture);
     }
     bail!("no se pudo capturar audio. {}", failed.join(" · "))

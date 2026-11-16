@@ -24,16 +24,10 @@ pub fn file_stem(artist: &str, title: &str) -> String {
 
 /// Ruta nueva en `~/Pictures/DiskTUI/` para esta canción, con la extensión dada.
 pub fn target(artist: &str, title: &str, extension: &str) -> Result<PathBuf> {
-    let home = std::env::var_os("HOME").ok_or_else(|| anyhow!("no se conoce la carpeta personal"))?;
-    let dir = PathBuf::from(home).join("Pictures").join("DiskTUI");
+    let dir = crate::paths::pictures_dir().ok_or_else(|| anyhow!("no se conoce la carpeta personal"))?;
     std::fs::create_dir_all(&dir).with_context(|| format!("no se pudo crear {}", dir.display()))?;
     // La hora evita pisar un archivo anterior de la misma canción.
-    let stamp = std::process::Command::new("date")
-        .arg("+%Y%m%d-%H%M%S")
-        .output()
-        .ok()
-        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
-        .unwrap_or_default();
+    let stamp = crate::paths::stamp();
     Ok(dir.join(format!("{} {stamp}.{extension}", file_stem(artist, title))))
 }
 

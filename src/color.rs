@@ -93,10 +93,10 @@ pub enum ColorMode {
 impl ColorMode {
     /// Lee `COLORTERM`. Si no anuncia truecolor, usa 256 colores.
     pub fn detect() -> Self {
-        match std::env::var("COLORTERM") {
-            Ok(v) if v.contains("truecolor") || v.contains("24bit") => ColorMode::True,
-            _ => ColorMode::Ansi256,
-        }
+        // Windows Terminal tiene color de 24 bits pero no define COLORTERM; se reconoce por
+        // WT_SESSION.
+        let wide = std::env::var("COLORTERM").is_ok_and(|v| v.contains("truecolor") || v.contains("24bit"));
+        if wide || std::env::var_os("WT_SESSION").is_some() { ColorMode::True } else { ColorMode::Ansi256 }
     }
 
     pub fn color(self, c: Rgb) -> Color {

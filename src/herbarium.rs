@@ -130,19 +130,13 @@ impl Entry {
     }
 }
 
-/// Fecha local de hoy, `AAAA-MM-DD`. Usa el comando `date` para respetar la zona horaria.
+/// Fecha local de hoy, `AAAA-MM-DD`.
 pub fn today() -> String {
-    std::process::Command::new("date")
-        .arg("+%Y-%m-%d")
-        .output()
-        .ok()
-        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
-        .unwrap_or_default()
+    crate::paths::today()
 }
 
 fn path() -> Option<PathBuf> {
-    let home = std::env::var_os("HOME")?;
-    Some(PathBuf::from(home).join(".local").join("share").join("disktui").join("herbario.tsv"))
+    Some(crate::paths::data_dir()?.join("herbario.tsv"))
 }
 
 pub fn parse(text: &str) -> Vec<Entry> {
@@ -221,7 +215,7 @@ pub fn view(terminal: &mut DefaultTerminal, mode: ColorMode) -> Result<()> {
                     KeyCode::Down => scroll = (scroll + 1).min(max_scroll),
                     KeyCode::Char('p') => {
                         let text = match crate::poster::save(&entries, &week) {
-                            Ok(_) => "póster guardado en ~/Pictures/DiskTUI".to_string(),
+                            Ok(_) => format!("póster guardado en {}", crate::paths::pictures_label()),
                             Err(e) => format!("no se pudo guardar el póster: {e:#}"),
                         };
                         notice = Some((text, Instant::now()));

@@ -12,6 +12,7 @@ tap-app = ["dep:objc2", "dep:objc2-core-audio", "dep:objc2-core-foundation", "de
 
 [dependencies]
 anyhow = "1"
+chrono = { version = "0.4.38", default-features = false, features = ["clock"] }
 crossterm = "0.29"
 font8x8 = { version = "0.3", default-features = false, features = ["unicode"] }
 image = { version = "0.25", default-features = false, features = ["gif", "jpeg", "png"] }

@@ -50,10 +50,27 @@ pub struct Settings {
     pub cover: bool,
 }
 
+impl Source {
+    /// Las fuentes que funcionan en este sistema. En Windows, Spotify y Apple Music todavía
+    /// no: dependen de AppleScript y del audio de macOS.
+    pub fn available() -> &'static [Source] {
+        if cfg!(windows) {
+            &[Source::File, Source::Demo]
+        } else {
+            &[Source::Spotify, Source::Music, Source::File, Source::Demo]
+        }
+    }
+
+    /// La que viene elegida si no hay configuración: Spotify donde funciona, si no el demo.
+    pub fn preferred() -> Source {
+        if cfg!(windows) { Source::Demo } else { Source::Spotify }
+    }
+}
+
 impl Default for Settings {
     fn default() -> Self {
         Settings {
-            source: Source::Spotify,
+            source: Source::preferred(),
             file: String::new(),
             scene: SceneChoice::Auto,
             flowers: 3,
@@ -69,8 +86,7 @@ const SPEEDS: [f32; 5] = [0.5, 0.75, 1.0, 1.5, 2.0];
 
 impl Settings {
     fn config_path() -> Option<PathBuf> {
-        let home = std::env::var_os("HOME")?;
-        Some(PathBuf::from(home).join(".config").join("disktui").join("config"))
+        Some(crate::paths::config_dir()?.join("config"))
     }
 
     /// Lee la configuración guardada. Si no existe o está dañada, usa los valores por defecto.
@@ -104,6 +120,9 @@ impl Settings {
                         "demo" => Source::Demo,
                         "music" => Source::Music,
                         _ => Source::Spotify,
+                    };
+                    if !Source::available().contains(&s.source) {
+                        s.source = Source::preferred();
                     }
                 }
                 "archivo" => s.file = value.to_string(),
@@ -149,6 +168,9 @@ pub fn clean_path(raw: &str) -> String {
     let mut out = String::new();
     if quoted {
         out.push_str(&trimmed[1..trimmed.len() - 1]);
+    } else if cfg!(windows) {
+        // En Windows la barra invertida separa carpetas: no es un escape.
+        out.push_str(trimmed);
     } else {
         let mut chars = trimmed.chars();
         while let Some(c) = chars.next() {
@@ -161,8 +183,8 @@ pub fn clean_path(raw: &str) -> String {
             }
         }
     }
-    if let (Some(rest), Some(home)) = (out.strip_prefix("~/"), std::env::var_os("HOME")) {
-        return PathBuf::from(home).join(rest).to_string_lossy().into_owned();
+    if let (Some(rest), Some(home)) = (out.strip_prefix("~/"), crate::paths::home()) {
+        return home.join(rest).to_string_lossy().into_owned();
     }
     out
 }
@@ -205,7 +227,7 @@ fn change(s: &mut Settings, row: Row, step: i32) {
     let cycle = |i: usize, n: usize| ((i as i32 + step).rem_euclid(n as i32)) as usize;
     match row {
         Row::Source => {
-            let order = [Source::Spotify, Source::Music, Source::File, Source::Demo];
+            let order = Source::available();
             let i = order.iter().position(|x| *x == s.source).unwrap_or(0);
             s.source = order[cycle(i, order.len())];
         }

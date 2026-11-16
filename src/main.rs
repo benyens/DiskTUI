@@ -22,6 +22,7 @@ mod moment;
 mod mood;
 mod ocean;
 mod palette;
+mod paths;
 mod plant;
 mod poster;
 mod postcard;
@@ -259,6 +260,12 @@ fn open_file(path: &std::path::Path) -> Result<Opened> {
 }
 
 fn open_player(app: spotify::App, device: Option<String>, global: bool) -> Result<Opened> {
+    if cfg!(windows) {
+        anyhow::bail!(
+            "el modo {} todavía no funciona en Windows. Prueba `disktui --demo` o `disktui cancion.mp3`",
+            app.display()
+        );
+    }
     Ok((Box::new(spotify::SpotifySession::open(app, device, global)?), 0x5107))
 }
 
@@ -297,6 +304,9 @@ fn start() -> Result<()> {
         Some(Mode::Diagnose) => {
             // `--diagnostico --apple-music` diagnostica Apple Music; solo, Spotify.
             let app = if args.music { spotify::App::Music } else { spotify::App::Spotify };
+            if cfg!(windows) {
+                anyhow::bail!("el diagnóstico es del modo Spotify, que todavía no funciona en Windows");
+            }
             diagnose::run(app, args.device.clone());
             return Ok(());
         }
@@ -318,7 +328,10 @@ fn start() -> Result<()> {
     // Captura del mouse: así el scroll llega como evento de mouse (que se ignora) y la
     // terminal deja de traducirlo a flechas. Pegado entre corchetes: arrastrar un archivo
     // al menú llega como un solo evento.
-    let _ = crossterm::execute!(std::io::stdout(), EnableMouseCapture, EnableBracketedPaste);
+    // Por separado: si una falla (el pegado entre corchetes en consolas antiguas de
+    // Windows), la otra se aplica igual.
+    let _ = crossterm::execute!(std::io::stdout(), EnableMouseCapture);
+    let _ = crossterm::execute!(std::io::stdout(), EnableBracketedPaste);
     // Si el programa entra en pánico, también hay que soltar el mouse antes de salir.
     let previous = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |info| {
@@ -461,6 +474,8 @@ fn run(
         // Teclado: se atiende sin bloquear.
         while event::poll(Duration::ZERO)? {
             if let Event::Key(key) = event::read()? {
+                // En Windows llegan también los eventos de soltar la tecla: se ignoran, o
+                // cada tecla contaría dos veces.
                 if key.kind != KeyEventKind::Press {
                     continue;
                 }
@@ -535,7 +550,7 @@ fn run(
                     KeyCode::Char('p') => session.skip(-1),
                     KeyCode::Char('s') => {
                         let text = match postcard::save(&canvas, &current.artist, &current.title) {
-                            Ok(_) => "postal guardada en ~/Pictures/DiskTUI".to_string(),
+                            Ok(_) => format!("postal guardada en {}", paths::pictures_label()),
                             Err(e) => format!("no se pudo guardar la postal: {e:#}"),
                         };
                         notice = Some((text, Instant::now()));
@@ -685,7 +700,7 @@ fn run(
         if let Some(result) = gif_job.as_ref().and_then(|job| job.try_recv().ok()) {
             gif_job = None;
             let text = match result {
-                Ok(_) => "GIF guardado en ~/Pictures/DiskTUI".to_string(),
+                Ok(_) => format!("GIF guardado en {}", paths::pictures_label()),
                 Err(e) => format!("no se pudo guardar el GIF: {e:#}"),
             };
             notice = Some((text, Instant::now()));

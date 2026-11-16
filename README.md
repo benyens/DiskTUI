@@ -4,13 +4,14 @@
 
 **Tu música, convertida en paisaje dentro de la terminal.**
 
-Un visualizador de audio para macOS escrito en Rust. Escucha la canción, entiende su
+Un visualizador de audio para macOS (y Windows, en camino) escrito en Rust. Escucha la canción, entiende su
 ánimo y la convierte en una escena viva: un jardín que florece, fuegos artificiales sobre
 un lago, un tren de noche, medusas en el fondo del mar. Todo con los colores de la
 carátula.
 
 ![Rust](https://img.shields.io/badge/Rust-1.89%2B-orange?logo=rust)
 ![macOS](https://img.shields.io/badge/macOS-Apple%20Silicon%20%7C%20Intel-lightgrey?logo=apple)
+![Windows](https://img.shields.io/badge/Windows-demo%20y%20archivos-0078D6?logo=windows)
 ![TUI](https://img.shields.io/badge/TUI-ratatui-blue)
 ![100% local](https://img.shields.io/badge/audio-100%25%20local-green)
 ![Vibecoded](https://img.shields.io/badge/vibecoded-con%20Claude-8A2BE2)
@@ -90,6 +91,37 @@ Si la terminal no lo encuentra, agrega `~/.cargo/bin` a tu PATH:
 `echo 'export PATH="$HOME/.cargo/bin:$PATH"' >> ~/.zshrc` y abre otra terminal.
 
 Para probar sin instalar: `cargo run --release`.
+
+### En Windows (experimental)
+
+Por ahora funcionan el **demo** y el **modo archivo**; Spotify y Apple Music todavía no,
+porque dependen de AppleScript y del audio de macOS.
+
+1. Instala las herramientas de compilación de C++ y Rust, en PowerShell:
+
+   ```powershell
+   winget install Microsoft.VisualStudio.2022.BuildTools --override "--add Microsoft.VisualStudio.Workload.VCTools --includeRecommended --passive --wait"
+   winget install Rustlang.Rustup
+   ```
+
+   Cierra y abre la terminal para que encuentre `cargo`.
+
+2. Instala DiskTUI:
+
+   ```powershell
+   cargo install --git https://github.com/benyens/DiskTUI
+   ```
+
+3. Ábrelo en **Windows Terminal** (tiene color de 24 bits):
+
+   ```powershell
+   disktui --demo
+   disktui "C:\ruta\a\cancion.mp3"
+   ```
+
+En Windows, la configuración, el herbario y las correcciones quedan en
+`%APPDATA%\DiskTUI`, y las imágenes en `Imágenes\DiskTUI`. Si se ve entrecortado, prueba
+`--fps 30`.
 
 ## Uso
 
@@ -585,6 +617,7 @@ Lo que eso implica, para quien lo lea:
   (tempo dentro de ±2 BPM, golpes a menos de 60 ms). Con música real pueden fallar, sobre
   todo el ánimo; para eso están `--animo` y las correcciones de la tecla `d`.
 - **Apple Music y la fórmula de Homebrew:** escritos sin poder ejecutarlos. Experimentales.
+- **Windows:** demo y modo archivo, escritos sin poder compilarlos en Windows. Experimental.
 
 ## Ideas
 

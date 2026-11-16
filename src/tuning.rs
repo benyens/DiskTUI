@@ -39,8 +39,7 @@ fn measured(song: &Song) -> String {
 impl Corrections {
     /// Lee las correcciones guardadas. Sin archivo, empieza vacío.
     pub fn load() -> Self {
-        let path = std::env::var_os("HOME")
-            .map(|home| PathBuf::from(home).join(".local").join("share").join("disktui").join("animos.tsv"));
+        let path = crate::paths::data_dir().map(|dir| dir.join("animos.tsv"));
         let text = path.as_ref().and_then(|p| std::fs::read_to_string(p).ok()).unwrap_or_default();
         Corrections { rows: Self::parse(&text), path }
     }

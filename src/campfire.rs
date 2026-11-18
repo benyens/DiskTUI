@@ -233,11 +233,14 @@ impl Campfire {
         let needles = Rgb(0.03, 0.07, 0.06).mix(Rgb(0.10, 0.30, 0.16), atm.daylight * 0.8).mix(self.scenery.sky(1.0), 0.12);
         let toward = (fire_x - cx).signum();
         let near = (-((cx - fire_x) / (0.42 * w)).powi(2)).exp();
-        for j in 0..tall as i32 {
-            let v = j as f32 / tall;
-            let y = (ground - tall) as i32 + j;
+        // De la punta hasta la última fila antes del pasto, sin hueco por redondeo.
+        let base = ground as i32;
+        let top = base - tall.round() as i32;
+        let trunk = (half * 0.18).max(1.0);
+        for y in top..base {
+            let v = (y - top) as f32 / (base - top).max(1) as f32;
             // Tronco abajo; arriba, pisos de ramas que se abren hacia el suelo.
-            let reach = if v > 0.92 { 1.0 } else { half * (0.12 + 0.88 * v) * (0.50 + 0.50 * (v * tree.tiers).fract()) };
+            let reach = if v > 0.90 { trunk } else { half * (0.12 + 0.88 * v) * (0.50 + 0.50 * (v * tree.tiers).fract()) };
             for i in -(reach.round() as i32)..=reach.round() as i32 {
                 let facing = if i as f32 * toward > 0.0 { 1.0 } else { 0.25 };
                 let lit = light * near * facing * (0.25 + 0.75 * v) * 0.30;
@@ -254,15 +257,18 @@ impl Campfire {
         let atm = self.scenery.atmosphere();
         let (cx, half, tall) = (w * 0.30, (w * 0.065).max(4.0), (ground * 0.17).max(4.0));
         let cloth = pal.petal.scale(0.22 + 0.50 * atm.daylight);
-        for j in 0..tall as i32 {
-            let v = (j as f32 + 1.0) / tall;
+        // Apoyada en el pasto: la última fila es la de justo encima del suelo.
+        let base = ground as i32;
+        let rows = tall.round() as i32;
+        for j in 0..rows {
+            let v = (j as f32 + 1.0) / rows as f32;
             let reach = (half * v).round() as i32;
             for i in -reach..=reach {
                 // El lado derecho mira al fuego; la puerta es una rendija oscura.
                 let lit = if i > 0 { light * 0.40 * (i as f32 / half).clamp(0.3, 1.0) } else { light * 0.08 };
                 let door = i.abs() <= (reach / 6) && v > 0.35;
                 let color = if door { cloth.scale(0.35) } else { cloth.add(warm, lit) };
-                canvas.blend(cx as i32 + i, (ground - tall) as i32 + j, color, 1.0);
+                canvas.blend(cx as i32 + i, base - rows + j, color, 1.0);
             }
         }
     }
@@ -425,5 +431,29 @@ mod tests {
         let again = burn(&mut fire, &bands, 0.5, 4.0);
         assert!(fire.dying.is_none());
         assert!(again > lit * 0.6, "no volvió a prender: {lit} vs {again}");
+    }
+
+    #[test]
+    fn trees_and_tent_stand_on_the_grass() {
+        // En varios tamaños, la fila justo encima del pasto tiene pino o carpa donde están.
+        for (w, h) in [(120, 32), (97, 29), (200, 50), (81, 23)] {
+            let mut fire = Campfire::new(7);
+            let quiet = Bands::default();
+            fire.update(&frame(&quiet, 0.5), w, h);
+            let mut canvas = Canvas::new(w, h);
+            fire.draw(&mut canvas, &Palette::default());
+            let ground = canvas.px_h().saturating_sub(GROUND) as i32;
+            let sky = fire.scenery.sky(1.0);
+            for tree in &fire.trees {
+                let x = (tree.x * w as f32) as i32;
+                let above = canvas.pixel(x, ground - 1).unwrap();
+                assert_ne!(above, sky, "pino flotando en {w}x{h}, x={x}");
+            }
+            if w >= 60 {
+                let x = (w as f32 * 0.30) as i32 + 2;
+                let above = canvas.pixel(x, ground - 1).unwrap();
+                assert!(above.0 > above.2 * 0.5 || above.0 > 0.15, "carpa flotando en {w}x{h}: {above:?}");
+            }
+        }
     }
 }

@@ -203,7 +203,9 @@ fn rows(s: &Settings) -> Vec<Row> {
         rows.push(Row::File);
     }
     rows.push(Row::Scene);
-    if matches!(s.scene, SceneChoice::Auto | SceneChoice::Fixed(SceneKind::Garden)) {
+    // Solo con el jardín elegido a mano: en automática la escena puede ser cualquiera, y
+    // si sale el jardín usa la cantidad guardada.
+    if s.scene == SceneChoice::Fixed(SceneKind::Garden) {
         rows.push(Row::Flowers);
     }
     rows.push(Row::Mood);
@@ -564,6 +566,9 @@ mod tests {
     #[test]
     fn rows_follow_the_choices() {
         let mut s = Settings::default();
+        // En automática no hay fila de flores; con el jardín elegido, sí.
+        assert_eq!(rows(&s), [Row::Source, Row::Scene, Row::Mood, Row::Speed, Row::Cover, Row::Capture]);
+        s.scene = SceneChoice::Fixed(SceneKind::Garden);
         assert_eq!(
             rows(&s),
             [Row::Source, Row::Scene, Row::Flowers, Row::Mood, Row::Speed, Row::Cover, Row::Capture]

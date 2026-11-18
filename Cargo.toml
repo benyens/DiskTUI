@@ -22,6 +22,10 @@ realfft = "3.5"
 rodio = { version = "0.23", default-features = false, features = ["playback", "flac", "mp3", "mp4", "vorbis", "wav"] }
 rtrb = "0.4"
 
+# Windows: título, carátula y controles desde los controles multimedia del sistema.
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.62", features = ["Media_Control", "Foundation", "Foundation_Collections", "Storage_Streams", "Win32_System_WinRT"] }
+
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = { version = "0.6", optional = true }
 objc2-core-audio = { version = "0.3", optional = true, default-features = false, features = ["std", "AudioHardware", "objc2", "objc2-foundation"] }

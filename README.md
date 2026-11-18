@@ -4,14 +4,14 @@
 
 **Tu música, convertida en paisaje dentro de la terminal.**
 
-Un visualizador de audio para macOS (y Windows, en camino) escrito en Rust. Escucha la canción, entiende su
+Un visualizador de audio para macOS y Windows, escrito en Rust. Escucha la canción, entiende su
 ánimo y la convierte en una escena viva: un jardín que florece, fuegos artificiales sobre
 un lago, un tren de noche, medusas en el fondo del mar. Todo con los colores de la
 carátula.
 
 ![Rust](https://img.shields.io/badge/Rust-1.89%2B-orange?logo=rust)
 ![macOS](https://img.shields.io/badge/macOS-Apple%20Silicon%20%7C%20Intel-lightgrey?logo=apple)
-![Windows](https://img.shields.io/badge/Windows-demo%20y%20archivos-0078D6?logo=windows)
+![Windows](https://img.shields.io/badge/Windows-experimental-0078D6?logo=windows)
 ![TUI](https://img.shields.io/badge/TUI-ratatui-blue)
 ![100% local](https://img.shields.io/badge/audio-100%25%20local-green)
 ![Vibecoded](https://img.shields.io/badge/vibecoded-con%20Claude-8A2BE2)
@@ -94,8 +94,10 @@ Para probar sin instalar: `cargo run --release`.
 
 ### En Windows (experimental)
 
-Por ahora funcionan el **demo** y el **modo archivo**; Spotify y Apple Music todavía no,
-porque dependen de AppleScript y del audio de macOS.
+Funcionan el demo, el modo archivo y el **modo Spotify**. En Windows, DiskTUI escucha todo
+el audio del sistema (no solo el de Spotify) y lee título, artista, carátula y posición de
+los controles multimedia de Windows, los mismos del panel de volumen. Play/pausa, `n`/`p` y
+las flechas funcionan; el volumen se maneja con el de Windows.
 
 1. Instala las herramientas de compilación de C++ y Rust, en PowerShell:
 
@@ -115,6 +117,8 @@ porque dependen de AppleScript y del audio de macOS.
 3. Ábrelo en **Windows Terminal** (tiene color de 24 bits):
 
    ```powershell
+   disktui                  # menú, con Spotify por defecto
+   disktui --spotify
    disktui --demo
    disktui "C:\ruta\a\cancion.mp3"
    ```
@@ -617,7 +621,9 @@ Lo que eso implica, para quien lo lea:
   (tempo dentro de ±2 BPM, golpes a menos de 60 ms). Con música real pueden fallar, sobre
   todo el ánimo; para eso están `--animo` y las correcciones de la tecla `d`.
 - **Apple Music y la fórmula de Homebrew:** escritos sin poder ejecutarlos. Experimentales.
-- **Windows:** demo y modo archivo, escritos sin poder compilarlos en Windows. Experimental.
+- **Windows:** demo, modo archivo y modo Spotify. El código de Windows se revisó contra
+  los tipos reales de su API, pero se escribió sin poder ejecutarlo en Windows.
+  Experimental.
 
 ## Ideas
 

@@ -1,7 +1,12 @@
 //! Modo Spotify: captura el audio que reproduce la app y lee título, artista, posición y
-//! carátula por AppleScript. Sin Web API, sin OAuth, sin credenciales.
+//! carátula. Sin Web API, sin OAuth, sin credenciales.
 //!
-//! Única llamada de red de todo el programa: descargar la carátula (con `curl`).
+//! En macOS, los datos salen de AppleScript y la carátula se descarga con `curl` (la única
+//! llamada de red del programa). En Windows, todo sale de los controles multimedia del
+//! sistema ([`crate::media_windows`]), carátula incluida, sin red.
+
+// En Windows, lo de AppleScript queda compilado pero sin usar.
+#![cfg_attr(windows, allow(dead_code))]
 
 use std::process::Command;
 use std::sync::Arc;
@@ -38,6 +43,15 @@ impl App {
         match self {
             App::Spotify => "Spotify",
             App::Music => "Apple Music",
+        }
+    }
+
+    /// Parte del identificador de la app en los controles multimedia de Windows.
+    #[cfg_attr(not(windows), allow(dead_code))]
+    pub fn media_id(self) -> &'static str {
+        match self {
+            App::Spotify => "spotify",
+            App::Music => "applemusic",
         }
     }
 
@@ -169,7 +183,25 @@ fn parse(output: &str) -> Option<NowPlaying> {
     })
 }
 
+/// Windows: lo que suena, desde los controles multimedia del sistema.
+#[cfg(windows)]
+fn query(app: App) -> Result<Option<NowPlaying>, String> {
+    Ok(crate::media_windows::query(app.media_id())?.map(|m| NowPlaying {
+        // No hay id de pista: el título y el artista identifican la canción.
+        id: format!("{}|{}", m.title, m.artist),
+        title: m.title,
+        artist: m.artist,
+        duration: (m.duration > 0.0).then(|| Duration::from_secs_f32(m.duration)),
+        position: m.position,
+        playing: m.playing,
+        artwork_url: String::new(),
+        // Windows no expone el volumen de la app por aquí.
+        volume: None,
+    }))
+}
+
 /// Ejecuta la consulta. `Err` trae el mensaje de AppleScript (por ejemplo, permiso denegado).
+#[cfg(not(windows))]
 fn query(app: App) -> Result<Option<NowPlaying>, String> {
     let out = Command::new("osascript")
         .arg("-e")
@@ -236,6 +268,13 @@ fn osascript(script: &str) -> Option<String> {
 }
 
 /// Bytes de la carátula de la canción actual.
+#[cfg(windows)]
+fn artwork(app: App, _url: &str) -> Option<Vec<u8>> {
+    crate::media_windows::thumbnail(app.media_id())
+}
+
+/// Bytes de la carátula de la canción actual.
+#[cfg(not(windows))]
 fn artwork(app: App, url: &str) -> Option<Vec<u8>> {
     match app {
         App::Spotify => fetch_artwork(url),
@@ -276,11 +315,56 @@ enum Update {
     Palette(Palette, Option<Cover>),
 }
 
+/// Ejecuta una orden del teclado en la app.
+#[cfg(not(windows))]
+fn run_command(app: App, command: Command_) {
+    let name = app.script_name();
+    match command {
+        Command_::PlayPause => {
+            osascript(&format!("tell application \"{name}\" to playpause"));
+        }
+        Command_::Volume(steps) => {
+            osascript(&format!(
+                "tell application \"{name}\"\nset dtVolume to (sound volume) + ({})\nif dtVolume > 100 then set dtVolume to 100\nif dtVolume < 0 then set dtVolume to 0\nset sound volume to dtVolume\nend tell",
+                steps * 5
+            ));
+        }
+        Command_::Seek(seconds) => {
+            osascript(&format!(
+                "tell application \"{name}\"\nset dtTarget to (player position) + ({seconds})\nif dtTarget < 0 then set dtTarget to 0\nset player position to dtTarget\nend tell"
+            ));
+        }
+        Command_::Skip(direction) => {
+            let verb = if direction > 0 { "next track" } else { "previous track" };
+            osascript(&format!("tell application \"{name}\" to {verb}"));
+        }
+    }
+}
+
+/// Ejecuta una orden del teclado en la app. El volumen no: Windows no lo expone por los
+/// controles multimedia, se usa el del sistema.
+#[cfg(windows)]
+fn run_command(app: App, command: Command_) {
+    use crate::media_windows::{Control, control};
+    let id = app.media_id();
+    match command {
+        Command_::PlayPause => control(id, Control::PlayPause),
+        Command_::Skip(direction) => control(id, if direction > 0 { Control::Next } else { Control::Previous }),
+        Command_::Seek(seconds) => control(id, Control::Seek(seconds)),
+        Command_::Volume(_) => {}
+    }
+}
+
+/// Intentos para conseguir la carátula de una canción nueva: en Windows la app a veces la
+/// publica un poco después que el título.
+const ARTWORK_TRIES: u32 = 4;
+
 /// Hilo que consulta a Spotify una vez por segundo y atiende los comandos del teclado.
 fn spawn_poller(app: App, tx: Sender<Update>, commands: Receiver<Command_>, stop: Arc<AtomicBool>) {
-    let name = app.script_name();
     let _ = thread::Builder::new().name("disktui-spotify".into()).spawn(move || {
         let mut current_id = String::new();
+        // Canción cuya carátula falta, y cuántas veces se ha intentado.
+        let mut pending: Option<(NowPlaying, u32)> = None;
         while !stop.load(Ordering::Relaxed) {
             let now = query(app);
             let new_track = now.as_ref().ok().and_then(|n| n.as_ref()).filter(|n| n.id != current_id).cloned();
@@ -289,33 +373,23 @@ fn spawn_poller(app: App, tx: Sender<Update>, commands: Receiver<Command_>, stop
             }
             if let Some(track) = new_track {
                 current_id = track.id.clone();
+                pending = Some((track, 0));
+            }
+            if let Some((track, tries)) = pending.take() {
                 let bytes = artwork(app, &track.artwork_url);
-                let palette = bytes.as_deref().and_then(Palette::from_image_bytes).unwrap_or_default();
-                let cover = bytes.as_deref().and_then(Cover::from_image_bytes);
-                if tx.send(Update::Palette(palette, cover)).is_err() {
-                    break;
+                if bytes.is_none() && tries + 1 < ARTWORK_TRIES {
+                    pending = Some((track, tries + 1));
+                } else {
+                    let palette = bytes.as_deref().and_then(Palette::from_image_bytes).unwrap_or_default();
+                    let cover = bytes.as_deref().and_then(Cover::from_image_bytes);
+                    if tx.send(Update::Palette(palette, cover)).is_err() {
+                        break;
+                    }
                 }
             }
             // Espera 1 s, o menos si llega un comando: tras ejecutarlo se vuelve a consultar.
             match commands.recv_timeout(Duration::from_secs(1)) {
-                Ok(Command_::PlayPause) => {
-                    osascript(&format!("tell application \"{name}\" to playpause"));
-                }
-                Ok(Command_::Volume(steps)) => {
-                    osascript(&format!(
-                        "tell application \"{name}\"\nset dtVolume to (sound volume) + ({})\nif dtVolume > 100 then set dtVolume to 100\nif dtVolume < 0 then set dtVolume to 0\nset sound volume to dtVolume\nend tell",
-                        steps * 5
-                    ));
-                }
-                Ok(Command_::Seek(seconds)) => {
-                    osascript(&format!(
-                        "tell application \"{name}\"\nset dtTarget to (player position) + ({seconds})\nif dtTarget < 0 then set dtTarget to 0\nset player position to dtTarget\nend tell"
-                    ));
-                }
-                Ok(Command_::Skip(direction)) => {
-                    let verb = if direction > 0 { "next track" } else { "previous track" };
-                    osascript(&format!("tell application \"{name}\" to {verb}"));
-                }
+                Ok(command) => run_command(app, command),
                 Err(RecvTimeoutError::Timeout) => {}
                 Err(RecvTimeoutError::Disconnected) => break,
             }
@@ -492,14 +566,14 @@ impl Session for SpotifySession {
         if self.silent_for > 4.0 && muted {
             Some(Warning::new("volumen 0", format!("{app} está en volumen 0. Sube el volumen con +.")))
         } else if self.silent_for > 4.0 {
-            Some(Warning::new(
-                "sin señal",
-                format!(
-                    "{app} está sonando pero no llega audio. Revisa el permiso de grabación de audio \
-                     del sistema para la terminal (README, sección Modo Spotify) o prueba \
-                     `disktui --diagnostico`."
-                ),
-            ))
+            let advice = if cfg!(windows) {
+                "DiskTUI escucha la salida de audio predeterminada de Windows: revisa que la app \
+                 suene por ahí (Configuración → Sistema → Sonido)."
+            } else {
+                "Revisa el permiso de grabación de audio del sistema para la terminal (README, \
+                 sección Modo Spotify) o prueba `disktui --diagnostico`."
+            };
+            Some(Warning::new("sin señal", format!("{app} está sonando pero no llega audio. {advice}")))
         } else if let Some(e) = &self.script_error {
             Some(Warning::new(
                 "sin datos",

@@ -17,6 +17,8 @@ mod garden;
 mod herbarium;
 mod idle;
 mod menu;
+#[cfg(windows)]
+mod media_windows;
 mod meta;
 mod moment;
 mod mood;
@@ -260,12 +262,6 @@ fn open_file(path: &std::path::Path) -> Result<Opened> {
 }
 
 fn open_player(app: spotify::App, device: Option<String>, global: bool) -> Result<Opened> {
-    if cfg!(windows) {
-        anyhow::bail!(
-            "el modo {} todavía no funciona en Windows. Prueba `disktui --demo` o `disktui cancion.mp3`",
-            app.display()
-        );
-    }
     Ok((Box::new(spotify::SpotifySession::open(app, device, global)?), 0x5107))
 }
 

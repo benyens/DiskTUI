@@ -502,6 +502,7 @@ dependencies = [
  "realfft",
  "rodio",
  "rtrb",
+ "windows",
 ]
 
 [[package]]

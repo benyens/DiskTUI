@@ -51,19 +51,14 @@ pub struct Settings {
 }
 
 impl Source {
-    /// Las fuentes que funcionan en este sistema. En Windows, Spotify y Apple Music todavía
-    /// no: dependen de AppleScript y del audio de macOS.
+    /// Las fuentes del menú, en orden.
     pub fn available() -> &'static [Source] {
-        if cfg!(windows) {
-            &[Source::File, Source::Demo]
-        } else {
-            &[Source::Spotify, Source::Music, Source::File, Source::Demo]
-        }
+        &[Source::Spotify, Source::Music, Source::File, Source::Demo]
     }
 
-    /// La que viene elegida si no hay configuración: Spotify donde funciona, si no el demo.
+    /// La que viene elegida si no hay configuración.
     pub fn preferred() -> Source {
-        if cfg!(windows) { Source::Demo } else { Source::Spotify }
+        Source::Spotify
     }
 }
 

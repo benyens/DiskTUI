@@ -151,6 +151,24 @@ impl Canvas {
         }
     }
 
+    /// Oscurece una franja horizontal (filas de píxeles `y0..y1`) en proporción `k`, con
+    /// los bordes suaves. Para poner texto encima.
+    pub fn shade(&mut self, y0: usize, y1: usize, k: f32) {
+        let ph = self.h * 2;
+        let (y0, y1) = (y0.min(ph), y1.min(ph));
+        let span = (y1.saturating_sub(y0)).max(1) as f32;
+        for y in y0..y1 {
+            let v = (y - y0) as f32 / span;
+            // Más oscuro al centro, desvanecido hacia los bordes.
+            let edge = (v * 4.0).min((1.0 - v) * 4.0).min(1.0);
+            let dark = 1.0 - k.clamp(0.0, 1.0) * edge;
+            for x in 0..self.w {
+                let i = y * self.w + x;
+                self.px[i] = self.px[i].scale(dark);
+            }
+        }
+    }
+
     /// Color del píxel, o `None` fuera del lienzo.
     pub fn pixel(&self, x: i32, y: i32) -> Option<Rgb> {
         self.px_index(x, y).map(|i| self.px[i])

@@ -3,6 +3,7 @@
 
 mod analysis;
 mod audio;
+mod aurora;
 mod campfire;
 mod canvas;
 mod city;
@@ -16,6 +17,7 @@ mod fireworks;
 mod garden;
 mod herbarium;
 mod idle;
+mod lofi;
 mod menu;
 #[cfg(windows)]
 mod media_windows;
@@ -29,6 +31,7 @@ mod plant;
 mod poster;
 mod postcard;
 mod reef;
+mod sakura;
 mod render;
 mod scene;
 mod scenery;
@@ -82,7 +85,7 @@ USO
 
 OPCIONES
   --escena <nombre>         auto (según el ánimo), jardin, sistema, oceano, ciudad,
-                            fogata, tren, fondo o fuegos
+                            fogata, tren, fondo, fuegos, cerezos, lofi o aurora
   --fps <n>                 Cuadros por segundo (por defecto 60)
   --petalos <n>             Pétalos de la flor principal, 3 a 12 (por defecto según la canción)
   --flores <n>              Cantidad de flores, 1 a 3 (por defecto 3)
@@ -91,6 +94,7 @@ OPCIONES
                             (por defecto lo decide la canción)
   --caratula                Muestra la carátula del disco en una esquina
   --mini                    Para un panel chico (tmux): HUD de una línea, una flor, 30 FPS
+  --sin-tarjeta             No muestra el título grande al empezar cada canción
   --sin-hud                 Oculta el HUD (título, barra de reproducción)
   --dispositivo <nombre>    Modo Spotify: captura desde esa entrada (ej. \"BlackHole\")
   --global                  Modo Spotify: captura todo el audio del sistema
@@ -99,12 +103,13 @@ OPCIONES
 TECLAS
   q / Esc    salir          espacio   pausa
   + / -      volumen        h         mostrar u ocultar el HUD
-  e          cambiar de escena (automática y las ocho escenas)
+  e          cambiar de escena (automática y las once escenas)
   g          grabar un GIF de 8 segundos en ~/Pictures/DiskTUI
   v          grabar un GIF vertical (9:16) con carátula y título, para historias
   d          panel de detalles: qué entendió de la canción, la fuente de audio,
              los avisos completos y cómo corregir el ánimo
   c          mostrar u ocultar la carátula
+  t          encender o apagar la tarjeta con el título de cada canción
   ← / →      retroceder / adelantar 10 segundos (archivo, Spotify, Apple Music)
   n / p      canción siguiente / anterior (Spotify y Apple Music)
   s          guardar una postal PNG en ~/Pictures/DiskTUI
@@ -132,6 +137,8 @@ struct Args {
     hud: bool,
     /// Mostrar la carátula en una esquina.
     cover: bool,
+    /// Tarjeta con el título al empezar cada canción.
+    card: bool,
     /// Modo mini, para un panel chico: HUD de una línea, una flor, 30 FPS.
     mini: bool,
     device: Option<String>,
@@ -155,6 +162,7 @@ fn parse_args() -> Result<Args> {
         mood: None,
         hud: true,
         cover: false,
+        card: true,
         mini: false,
         device: None,
         global: false,
@@ -184,6 +192,7 @@ fn parse_args() -> Result<Args> {
             "--sin-hud" => args.hud = false,
             "--mini" => args.mini = true,
             "--caratula" | "--carátula" => args.cover = true,
+            "--sin-tarjeta" => args.card = false,
             "--global" => args.global = true,
             "--fps" => args.fps = value("--fps")?.parse::<u32>()?.clamp(10, 240),
             "--petalos" | "--pétalos" => args.petals = Some(value("--petalos")?.parse::<u32>()?.clamp(3, 12)),
@@ -191,7 +200,7 @@ fn parse_args() -> Result<Args> {
                 let name = value("--escena")?;
                 args.scene = Some(
                     SceneChoice::parse(&name)
-                        .ok_or_else(|| anyhow::anyhow!("escena desconocida: {name} (usa auto, jardin, sistema, oceano, ciudad, fogata, tren, fondo o fuegos)"))?,
+                        .ok_or_else(|| anyhow::anyhow!("escena desconocida: {name} (usa auto, jardin, sistema, oceano, ciudad, fogata, tren, fondo, fuegos, cerezos, lofi o aurora)"))?,
                 );
             }
             "--velocidad" => {
@@ -246,6 +255,7 @@ struct RunOptions {
     mood: Option<Mood>,
     hud: bool,
     cover: bool,
+    card: bool,
     mini: bool,
     /// Al terminar la canción se vuelve al menú en vez de salir.
     from_menu: bool,
@@ -292,6 +302,7 @@ fn start() -> Result<()> {
     }
     settings.global |= args.global;
     settings.cover |= args.cover;
+    settings.card &= args.card;
 
     // Con fuente en la línea de comandos se abre antes de tomar la terminal: así los
     // errores se leen bien. Sin fuente, se abre el menú.
@@ -401,6 +412,7 @@ fn launch(
             mood: settings.mood,
             hud: args.hud,
             cover: settings.cover,
+            card: settings.card,
             mini: args.mini,
             from_menu,
         };
@@ -428,6 +440,9 @@ fn run(
     stage.force_mood(args.mood);
     let mut cover: Option<palette::Cover> = None;
     let mut show_cover = args.cover;
+    // Tarjeta de canción: segundos desde que empezó la canción actual.
+    let mut show_card = args.card;
+    let mut card_clock: Option<f32> = Some(0.0);
     // Escena: fija, o la que pida el ánimo de la canción. En automático se elige una vez
     // por canción, cuando el análisis ya es fiable.
     let mut choice = args.scene;
@@ -497,6 +512,11 @@ fn run(
                     KeyCode::Char('-') | KeyCode::Char('_') => session.change_volume(-1),
                     KeyCode::Char('h') => show_hud = !show_hud,
                     KeyCode::Char('c') => show_cover = !show_cover,
+                    KeyCode::Char('t') => {
+                        show_card = !show_card;
+                        let text = if show_card { "tarjeta de canción: encendida" } else { "tarjeta de canción: apagada" };
+                        notice = Some((text.to_string(), Instant::now()));
+                    }
                     KeyCode::Char('e') => {
                         choice = choice.next();
                         chosen_for_track = false;
@@ -586,6 +606,7 @@ fn run(
         song = tick.bands.song;
         if session.track().title != current.title || session.track().artist != current.artist {
             current = session.track().clone();
+            card_clock = Some(0.0);
             chosen_for_track = false;
         }
         palette = palette.mix(&target_palette, 1.0 - (-dt * 2.5).exp());
@@ -693,6 +714,14 @@ fn run(
             gif_job = recording.take().map(postcard::Recording::finish);
             notice = Some(("guardando el GIF…".to_string(), Instant::now()));
         }
+        // Tarjeta de canción (después de grabar: los GIF quedan limpios).
+        card_clock = card_clock.map(|t| t + dt).filter(|t| *t < ui::CARD_SECONDS);
+        let card_alpha = if show_card && !args.mini { card_clock.map(ui::card_alpha).unwrap_or(0.0) } else { 0.0 };
+        if card_alpha > 0.0
+            && let Some((top, bottom)) = ui::card_band(canvas.h as u16)
+        {
+            canvas.shade(top as usize * 2, bottom as usize * 2 + 2, 0.6 * card_alpha);
+        }
         if let Some(result) = gif_job.as_ref().and_then(|job| job.try_recv().ok()) {
             gif_job = None;
             let text = match result {
@@ -706,6 +735,10 @@ fn run(
             let area = frame.area();
             let plant_area = Rect { height: area.height - hud_rows.min(area.height), ..area };
             canvas.render(frame.buffer_mut(), plant_area, mode);
+            if card_alpha > 0.0 {
+                let card = ui::Card { title: &current.title, artist: &current.artist, alpha: card_alpha, pal: &palette, mode };
+                ui::draw_card(frame.buffer_mut(), plant_area, &card);
+            }
             if hud_rows > 0 {
                 let hud_area = Rect { y: area.bottom() - hud_rows, height: hud_rows, ..area };
                 let hud = ui::Hud {

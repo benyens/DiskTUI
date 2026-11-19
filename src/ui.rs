@@ -238,6 +238,80 @@ pub fn draw_analysis(buf: &mut Buffer, area: Rect, a: &Analysis) {
     }
 }
 
+/// Tarjeta de canción: título y artista grandes al empezar cada tema, que se desvanecen.
+pub struct Card<'a> {
+    pub title: &'a str,
+    pub artist: &'a str,
+    /// 0 invisible, 1 del todo.
+    pub alpha: f32,
+    pub pal: &'a Palette,
+    pub mode: ColorMode,
+}
+
+/// Cuánto dura la tarjeta, en segundos: entra, se queda y se va.
+pub const CARD_SECONDS: f32 = 4.8;
+
+/// Opacidad de la tarjeta `t` segundos después de empezar la canción.
+pub fn card_alpha(t: f32) -> f32 {
+    let fade_in = (t / 0.7).clamp(0.0, 1.0);
+    let fade_out = ((CARD_SECONDS - t) / 1.2).clamp(0.0, 1.0);
+    let a = fade_in.min(fade_out);
+    a * a * (3.0 - 2.0 * a)
+}
+
+/// Filas (en celdas) de la franja de la tarjeta dentro de un área de `height` filas, o
+/// `None` si no cabe.
+pub fn card_band(height: u16) -> Option<(u16, u16)> {
+    if height < 9 {
+        return None;
+    }
+    let center = (height as f32 * 0.66) as u16;
+    Some((center.saturating_sub(2), (center + 3).min(height)))
+}
+
+/// Título con letras separadas si cabe, como en un videoclip; si no, tal cual y recortado.
+fn card_title(title: &str, width: usize) -> String {
+    let upper = title.to_uppercase();
+    let spaced: String = upper.chars().map(|c| c.to_string()).collect::<Vec<_>>().join(" ");
+    let fits = |t: &str| t.chars().count() + 4 <= width;
+    if fits(&spaced) {
+        spaced
+    } else if fits(&upper) {
+        upper
+    } else {
+        let room = width.saturating_sub(5);
+        format!("{}…", upper.chars().take(room).collect::<String>().trim_end())
+    }
+}
+
+/// Dibuja la tarjeta sobre la franja ya oscurecida del lienzo.
+pub fn draw_card(buf: &mut Buffer, area: Rect, card: &Card) {
+    let Some((top, _)) = card_band(area.height) else { return };
+    if card.alpha <= 0.01 || card.title.trim().is_empty() {
+        return;
+    }
+    let width = area.width as usize;
+    let back = card.pal.bg_bottom.scale(0.3);
+    let fade = |c: Rgb| back.mix(c, card.alpha);
+    let title = card_title(card.title, width);
+    let line: String = "━".repeat(title.chars().count().clamp(6, 18) / 3);
+    let center = |text: &str| width.saturating_sub(text.chars().count()) / 2;
+    put(buf, area, card.mode, center(&line), top, &line, fade(card.pal.accent));
+    put(buf, area, card.mode, center(&title), top + 1, &title, fade(Rgb::WHITE));
+    if !card.artist.trim().is_empty() {
+        let artist = text_fit(card.artist, width.saturating_sub(4));
+        put(buf, area, card.mode, center(&artist), top + 3, &artist, fade(card.pal.petal_light.mix(Rgb::WHITE, 0.4)));
+    }
+}
+
+fn text_fit(text: &str, width: usize) -> String {
+    if text.chars().count() <= width {
+        text.to_string()
+    } else {
+        format!("{}…", text.chars().take(width.saturating_sub(1)).collect::<String>())
+    }
+}
+
 /// Escribe `text` desde la columna `x` de la fila `y`, sin tocar el fondo de las celdas.
 fn put(buf: &mut Buffer, area: Rect, mode: ColorMode, x: usize, y: u16, text: &str, fg: Rgb) -> usize {
     let mut col = x;
@@ -566,5 +640,26 @@ mod tests {
     #[test]
     fn clock_format() {
         assert_eq!(clock(Duration::from_secs(215)), "3:35");
+    }
+
+    #[test]
+    fn card_fades_in_holds_and_fades_out() {
+        assert_eq!(card_alpha(0.0), 0.0);
+        assert!(card_alpha(2.0) > 0.99);
+        assert_eq!(card_alpha(CARD_SECONDS), 0.0);
+        assert!(card_alpha(0.3) < card_alpha(0.6));
+        assert_eq!(card_band(5), None);
+        let (a, b) = card_band(30).unwrap();
+        assert!(a < b && b <= 30);
+        assert_eq!(card_title("Hola", 40), "H O L A");
+        assert_eq!(card_title("Una canción bastante larga", 30), "UNA CANCIÓN BASTANTE LARGA");
+        assert!(card_title(&"x".repeat(80), 20).ends_with('…'));
+
+        let pal = Palette::default();
+        let area = Rect::new(0, 0, 60, 20);
+        let mut buf = Buffer::empty(area);
+        draw_card(&mut buf, area, &Card { title: "Dissolve", artist: "OVERSIZE", alpha: 1.0, pal: &pal, mode: ColorMode::True });
+        let text = text_of(&buf);
+        assert!(text.contains("D I S S O L V E") && text.contains("OVERSIZE"), "{text}");
     }
 }

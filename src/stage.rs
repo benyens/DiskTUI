@@ -3,16 +3,19 @@
 //! Avanzan siempre a la vez, así al cambiar de una a otra la nueva ya va al día con la
 //! canción.
 
+use crate::aurora::Aurora;
 use crate::campfire::Campfire;
 use crate::canvas::Canvas;
 use crate::city::City;
 use crate::cosmos::Cosmos;
 use crate::fireworks::Fireworks;
 use crate::garden::Garden;
+use crate::lofi::Lofi;
 use crate::mood::Mood;
 use crate::ocean::Ocean;
 use crate::palette::Palette;
 use crate::reef::Reef;
+use crate::sakura::Sakura;
 use crate::scene::{Frame, Scene, SceneKind};
 use crate::train::Train;
 
@@ -25,6 +28,9 @@ pub struct Stage {
     train: Train,
     reef: Reef,
     fireworks: Fireworks,
+    sakura: Sakura,
+    lofi: Lofi,
+    aurora: Aurora,
     mood: Option<Mood>,
 }
 
@@ -39,6 +45,9 @@ impl Stage {
             train: Train::new(seed),
             reef: Reef::new(seed),
             fireworks: Fireworks::new(seed),
+            sakura: Sakura::new(seed),
+            lofi: Lofi::new(seed),
+            aurora: Aurora::new(seed),
             mood: None,
         }
     }
@@ -60,9 +69,12 @@ impl Stage {
         self.train.scenery.force_mood(mood);
         self.reef.scenery.force_mood(mood);
         self.fireworks.scenery.force_mood(mood);
+        self.sakura.scenery.force_mood(mood);
+        self.lofi.scenery.force_mood(mood);
+        self.aurora.scenery.force_mood(mood);
     }
 
-    fn all(&mut self) -> [&mut dyn Scene; 8] {
+    fn all(&mut self) -> [&mut dyn Scene; 11] {
         [
             &mut self.garden,
             &mut self.cosmos,
@@ -72,6 +84,9 @@ impl Stage {
             &mut self.train,
             &mut self.reef,
             &mut self.fireworks,
+            &mut self.sakura,
+            &mut self.lofi,
+            &mut self.aurora,
         ]
     }
 
@@ -102,6 +117,9 @@ impl Stage {
             SceneKind::Train => self.train.draw(canvas, pal),
             SceneKind::Reef => self.reef.draw(canvas, pal),
             SceneKind::Fireworks => self.fireworks.draw(canvas, pal),
+            SceneKind::Sakura => self.sakura.draw(canvas, pal),
+            SceneKind::Lofi => self.lofi.draw(canvas, pal),
+            SceneKind::Aurora => self.aurora.draw(canvas, pal),
         }
     }
 }

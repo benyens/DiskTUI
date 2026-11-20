@@ -52,7 +52,7 @@ pub enum SceneKind {
 }
 
 impl SceneKind {
-    #[cfg(test)]
+    /// Todas las escenas, en el orden de la tecla `e`.
     pub const ALL: [SceneKind; 20] = [
         SceneKind::Garden,
         SceneKind::Cosmos,
@@ -178,6 +178,7 @@ impl SceneKind {
 
     /// La escena para esta canción: entre las que le van a su ánimo, una fija por canción
     /// (`salt` sale del título y el artista), para que no se repita siempre la misma.
+    #[cfg(test)]
     pub fn for_song(mood: Mood, salt: u64) -> Self {
         let options = Self::for_mood_all(mood);
         options[(salt % options.len() as u64) as usize]

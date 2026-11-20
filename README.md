@@ -38,6 +38,8 @@ carátula.
 - 🖱️ **Click en la escena** y responde: un fuego artificial, una mariposa, un pez, un cometa…
 - 🎬 **Tarjeta con el título** al empezar cada canción (se apaga con `t`).
 - 🦋 **Transiciones entre canciones**: mariposas, pétalos, iris, ola o destellos.
+- 📋 **Tu lista de escenas**: elige entre cuáles se turna la automática, y si van según
+  el ánimo, al azar o en orden.
 - 🎨 **Colores de la carátula** en todo: pétalos, velas, fuegos, medusas.
 - 🎧 **Spotify, Apple Music o archivos** (mp3, flac, wav, ogg, m4a).
 - 📸 **Para compartir**: postal PNG, GIF, y GIF vertical con título para historias. Con
@@ -172,6 +174,8 @@ También se puede saltar el menú desde la línea de comandos:
 
 | Opción | Efecto |
 | --- | --- |
+| `--lista <escenas>` | En automática, solo estas escenas, separadas por coma: `--lista ruta,bosque,nieve` |
+| `--orden <modo>` | Cómo se turnan en automática: `animo` (por defecto), `azar` u `orden` |
 | `--escena <nombre>` | `auto` (por defecto: la elige el ánimo), `jardin`, `sistema`, `oceano`, `ciudad`, `fogata`, `tren`, `fondo`, `fuegos`, `cerezos`, `lofi`, `aurora`, `mariposas`, `ruta`, `bosque`, `concierto`, `callejon`, `estanque`, `tormenta`, `nieve` o `globos` |
 | `--flores <n>` | Flores del jardín, de 1 a 3. Por defecto 3 |
 | `--petalos <n>` | Pétalos de la flor principal, de 3 a 12 |
@@ -193,6 +197,7 @@ También se puede saltar el menú desde la línea de comandos:
 
 | Tecla | Acción |
 | --- | --- |
+| `x` | Sacar de tu lista la escena que se ve (o agregarla, si no estaba) |
 | `e` | Cambiar de escena: automática, jardín, sistema solar, océano, ciudad, fogata, tren, fondo del mar, fuegos artificiales, cerezos, cuarto lofi, aurora boreal, mariposas, ruta costera, bosque, concierto, callejón, estanque, tormenta, pueblo nevado, globos |
 | `←` / `→` | Retroceder / adelantar 10 segundos (archivo, Spotify, Apple Music) |
 | `g` | Grabar un GIF de 8 segundos en `~/Pictures/DiskTUI` (`g` otra vez lo corta antes) |
@@ -303,6 +308,34 @@ varias escenas, cada canción se queda siempre con la misma:
 La elección se hace una vez por canción, cuando el análisis ya es fiable: de inmediato en
 modo archivo, a los ~20 segundos en Spotify. Las escenas se funden una en otra. La tecla
 `e` recorre automática y las veinte escenas.
+
+### Tu lista de escenas
+
+Si no quieres todas, arma tu lista: en automática, cada canción elige solo entre las que
+marcaste. En el menú, la fila *Lista* aparece con la escena en *automática*; Enter abre
+las casillas y la vista previa muestra la escena en la que estás parado.
+
+<div align="center"><img src="docs/lista.png" alt="Editor de la lista de escenas" width="70%"></div>
+
+| En el editor | Acción |
+| --- | --- |
+| `espacio` / Enter | Marcar o desmarcar |
+| `↑↓←→` | Moverse entre las escenas |
+| `a` | Todas; si ya estaban todas, solo la elegida (para armar desde cero) |
+| `o` | Cambiar el orden |
+| `Esc` | Volver al menú (la lista queda guardada) |
+
+El orden dice cómo se turnan:
+
+| Orden | Cómo elige |
+| --- | --- |
+| según el ánimo | Entre las de tu lista que le van al ánimo de la canción; si ninguna le va, cualquiera de la lista. Cada canción se queda siempre con la misma |
+| al azar | Cualquiera de la lista, sin repetir la anterior. Cambia apenas empieza la canción |
+| en orden | Una tras otra, en el orden de la tecla `e`. También cambia apenas empieza la canción |
+
+Mientras suena, `x` saca de la lista la escena que estás viendo y pasa a otra; si
+llegaste a una escena con `e` que no está en la lista, `x` la agrega. Desde la línea de
+comandos: `--lista ruta,bosque,nieve --orden azar`.
 
 ### Click en la escena
 
@@ -755,6 +788,7 @@ flowchart LR
 | `src/scene.rs` | Interfaz común de las escenas |
 | `src/garden.rs`, `src/plant.rs`, `src/render.rs` | Escena jardín |
 | `src/scenery.rs` | Ambiente del jardín: aurora, luna, cerros, flores silvestres, luciérnagas, mariposas |
+| `src/playlist.rs` | Lista de escenas de la automática: cuáles y en qué orden |
 | `src/menu.rs` | Menú de inicio y configuración guardada |
 | `src/ocean.rs` | Escena océano: mar, velero y faro |
 | `src/city.rs` | Escena ciudad: edificios, ventanas y fuegos artificiales |

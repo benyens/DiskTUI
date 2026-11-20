@@ -39,6 +39,7 @@ mod mood;
 mod ocean;
 mod palette;
 mod paths;
+mod playlist;
 mod plant;
 mod poster;
 mod postcard;
@@ -101,6 +102,8 @@ USO
   disktui --diagnostico     Prueba el modo Spotify paso a paso y dice qué falla
 
 OPCIONES
+  --lista <escenas>         En automática, solo estas escenas (ej. ruta,bosque,nieve)
+  --orden <modo>            Cómo se turnan en automática: animo, azar u orden
   --escena <nombre>         auto (según el ánimo), jardin, sistema, oceano, ciudad,
                             fogata, tren, fondo, fuegos, cerezos, lofi, aurora, mariposas,
                             ruta, bosque, concierto, callejon, estanque, tormenta,
@@ -165,6 +168,9 @@ struct Args {
     petals: Option<u32>,
     flowers: Option<u32>,
     scene: Option<SceneChoice>,
+    /// `--lista` y `--orden`: la lista de escenas de la automática.
+    playlist: Option<String>,
+    order: Option<playlist::Order>,
     speed: Option<f32>,
     mood: Option<Mood>,
     hud: bool,
@@ -202,6 +208,8 @@ fn parse_args() -> Result<Args> {
         petals: None,
         flowers: None,
         scene: None,
+        playlist: None,
+        order: None,
         speed: None,
         mood: None,
         hud: true,
@@ -270,6 +278,17 @@ fn parse_args() -> Result<Args> {
                         .ok_or_else(|| anyhow::anyhow!("escena desconocida: {name} (usa auto, jardin, sistema, oceano, ciudad, fogata, tren, fondo, fuegos, cerezos, lofi, aurora, mariposas, ruta, bosque, concierto, callejon, estanque, tormenta, nieve o globos)"))?,
                 );
             }
+            "--lista" => {
+                let list = value("--lista")?;
+                if let Some(bad) = list.split(',').map(str::trim).find(|n| !n.is_empty() && SceneKind::parse(n).is_none()) {
+                    bail!("escena desconocida en --lista: {bad}");
+                }
+                args.playlist = Some(list);
+            }
+            "--orden" => {
+                let name = value("--orden")?;
+                args.order = Some(playlist::Order::parse(&name).ok_or_else(|| anyhow::anyhow!("orden desconocido: {name} (usa animo, azar u orden)"))?);
+            }
             "--velocidad" => {
                 args.speed = Some(value("--velocidad")?.replace(',', ".").parse::<f32>()?.clamp(0.25, 8.0));
             }
@@ -317,6 +336,7 @@ struct RunOptions {
     petals: Option<u32>,
     flowers: u32,
     scene: SceneChoice,
+    playlist: playlist::Playlist,
     speed: f32,
     /// Clima fijo; `None` = el que pida la canción.
     mood: Option<Mood>,
@@ -363,6 +383,12 @@ fn start() -> Result<()> {
     let mut settings = Settings::load();
     if let Some(scene) = args.scene {
         settings.scene = scene;
+    }
+    if let Some(list) = &args.playlist {
+        settings.playlist = playlist::Playlist::parse(list, settings.playlist.order.key());
+    }
+    if let Some(order) = args.order {
+        settings.playlist.order = order;
     }
     if let Some(transition) = args.transition {
         settings.transition = transition;
@@ -489,6 +515,7 @@ fn launch(
             petals: args.petals,
             flowers: if args.mini && args.flowers.is_none() { 1 } else { settings.flowers },
             scene: settings.scene,
+            playlist: settings.playlist.clone(),
             speed: settings.speed,
             mood: settings.mood,
             hud: args.hud,
@@ -548,7 +575,16 @@ fn run(
     // Escena: fija, o la que pida el ánimo de la canción. En automático se elige una vez
     // por canción, cuando el análisis ya es fiable.
     let mut choice = args.scene;
-    let mut active = choice.resolve(args.mood.unwrap_or(Mood::Happy));
+    let mut playlist = args.playlist.clone();
+    let mut active = match choice {
+        SceneChoice::Auto => playlist.pick(args.mood.unwrap_or(Mood::Happy), 0, None, 0),
+        SceneChoice::Fixed(kind) => kind,
+    };
+    // En automática: ya se eligió alguna vez (para "en orden" y "al azar", que miran la anterior).
+    let mut auto_started = false;
+    // Canción para la que ya se eligió escena en automática ("al azar" y "en orden" eligen
+    // apenas empieza la canción: no esperan a conocer el ánimo).
+    let mut auto_track: Option<(String, String)> = None;
     let mut chosen_for_track = false;
     // Cambio de escena: la anterior sigue viva y se funde con la nueva (escena, avance,
     // duración en segundos).
@@ -678,13 +714,41 @@ fn run(
                     KeyCode::Char('e') => {
                         choice = choice.next();
                         chosen_for_track = false;
+                        auto_track = None;
                         if let SceneChoice::Fixed(kind) = choice
                             && kind != active
                         {
                             scene_fade = Some((active, transition::Transition::quick(transition::Style::Fade, 0.6)));
                             active = kind;
                         }
-                        notice = Some((format!("escena: {}", choice.name()), Instant::now()));
+                        let hint = match choice {
+                            SceneChoice::Fixed(kind) if !playlist.contains(kind) => " · x la agrega a la lista de la automática",
+                            _ => "",
+                        };
+                        notice = Some((format!("escena: {}{hint}", choice.name()), Instant::now()));
+                    }
+                    // Saca la escena de la lista de la automática (o la agrega, si no estaba).
+                    KeyCode::Char('x') => {
+                        let was_in = playlist.contains(active);
+                        let inside = playlist.toggle(active);
+                        let text = if was_in && inside {
+                            format!("{} es la única escena de la lista", active.name())
+                        } else if inside {
+                            format!("+ {} entró a la lista ({} escenas) · m para editarla", active.name(), playlist.len())
+                        } else {
+                            format!("− {} salió de la lista (quedan {}) · x la devuelve", active.name(), playlist.len())
+                        };
+                        if was_in != inside {
+                            let mut saved = Settings::load();
+                            saved.playlist = playlist.clone();
+                            saved.save();
+                        }
+                        // En automática se cambia de inmediato a otra de la lista.
+                        if choice == SceneChoice::Auto && !inside {
+                            chosen_for_track = false;
+                            auto_track = None;
+                        }
+                        notice = Some((text, Instant::now()));
                     }
                     KeyCode::Char('g') => {
                         let text = if let Some(rec) = recording.take() {
@@ -820,9 +884,17 @@ fn run(
         }
         let heard_mood = Mood::nearest(song.valence, song.arousal);
         let mood_now = wanted_mood.unwrap_or(heard_mood);
-        if choice == SceneChoice::Auto && !chosen_for_track && (wanted_mood.is_some() || song.settled >= 0.95) {
+        let ready = if playlist.needs_mood() {
+            !chosen_for_track && (wanted_mood.is_some() || song.settled >= 0.95)
+        } else {
+            auto_track.as_ref().is_none_or(|(artist, title)| *artist != current.artist || *title != current.title)
+        };
+        if choice == SceneChoice::Auto && ready {
             chosen_for_track = true;
-            let target = SceneKind::for_song(mood_now, SceneKind::salt(&current.artist, &current.title));
+            auto_track = Some((current.artist.clone(), current.title.clone()));
+            let salt = SceneKind::salt(&current.artist, &current.title);
+            let target = playlist.pick(mood_now, salt, auto_started.then_some(active), tracks_seen);
+            auto_started = true;
             if target != active {
                 // En la primera canción no hay nada que fundir: se cambia de inmediato.
                 let first = tracks_seen <= 1 && session.position().as_secs_f32() < 1.5;

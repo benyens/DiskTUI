@@ -21,6 +21,7 @@ use crate::demo;
 use crate::garden::Garden;
 use crate::mood::Mood;
 use crate::palette::Palette;
+use crate::playlist::Playlist;
 use crate::scene::{Frame, SceneChoice, SceneKind};
 use crate::stage::Stage;
 
@@ -40,6 +41,8 @@ pub struct Settings {
     /// Ruta del archivo, para `Source::File`.
     pub file: String,
     pub scene: SceneChoice,
+    /// En automática: entre qué escenas se elige y cómo se turnan.
+    pub playlist: Playlist,
     pub flowers: u32,
     pub speed: f32,
     /// Spotify: capturar todo el sistema en vez de solo la app.
@@ -78,6 +81,7 @@ impl Default for Settings {
             source: Source::preferred(),
             file: String::new(),
             scene: SceneChoice::Auto,
+            playlist: Playlist::default(),
             flowers: 3,
             speed: 1.0,
             global: false,
@@ -120,6 +124,7 @@ impl Settings {
     /// Formato `clave=valor`, una por línea. Lo que no se entiende se ignora.
     pub fn parse(text: &str) -> Settings {
         let mut s = Settings::default();
+        let (mut list, mut order) = (String::new(), String::new());
         for line in text.lines() {
             let Some((key, value)) = line.split_once('=') else { continue };
             let value = value.trim();
@@ -137,6 +142,8 @@ impl Settings {
                 }
                 "archivo" => s.file = value.to_string(),
                 "escena" => s.scene = SceneChoice::parse(value).unwrap_or(SceneChoice::Auto),
+                "lista" => list = value.to_string(),
+                "orden" => order = value.to_string(),
                 "flores" => s.flowers = value.parse().unwrap_or(3).clamp(1, 3),
                 "velocidad" => s.speed = value.parse().unwrap_or(1.0f32).clamp(0.25, 8.0),
                 "captura" => s.global = value == "sistema",
@@ -150,12 +157,13 @@ impl Settings {
                 _ => {}
             }
         }
+        s.playlist = Playlist::parse(&list, &order);
         s
     }
 
     pub fn serialize(&self) -> String {
         format!(
-            "fuente={}\narchivo={}\nescena={}\nflores={}\nvelocidad={}\ncaptura={}\nanimo={}\ncaratula={}\ntarjeta={}\ntransicion={}\ncielo={}\nletras={}\nenergia={}\n",
+            "fuente={}\narchivo={}\nescena={}\nlista={}\norden={}\nflores={}\nvelocidad={}\ncaptura={}\nanimo={}\ncaratula={}\ntarjeta={}\ntransicion={}\ncielo={}\nletras={}\nenergia={}\n",
             match self.source {
                 Source::Spotify => "spotify",
                 Source::Music => "music",
@@ -164,6 +172,8 @@ impl Settings {
             },
             self.file,
             self.scene.key(),
+            self.playlist.key(),
+            self.playlist.order.key(),
             self.flowers,
             self.speed,
             if self.global { "sistema" } else { "app" },
@@ -214,6 +224,7 @@ enum Row {
     Source,
     File,
     Scene,
+    Playlist,
     Flowers,
     Mood,
     Speed,
@@ -233,6 +244,9 @@ fn rows(s: &Settings) -> Vec<Row> {
         rows.push(Row::File);
     }
     rows.push(Row::Scene);
+    if s.scene == SceneChoice::Auto {
+        rows.push(Row::Playlist);
+    }
     // Solo con el jardín elegido a mano: en automática la escena puede ser cualquiera, y
     // si sale el jardín usa la cantidad guardada.
     if s.scene == SceneChoice::Fixed(SceneKind::Garden) {
@@ -267,6 +281,7 @@ fn change(s: &mut Settings, row: Row, step: i32) {
         }
         Row::File => {}
         Row::Scene => s.scene = s.scene.step(step),
+        Row::Playlist => s.playlist.order = s.playlist.order.step(step),
         Row::Flowers => s.flowers = (cycle(s.flowers as usize - 1, 3) + 1) as u32,
         Row::Speed => {
             let i = SPEEDS
@@ -301,6 +316,7 @@ fn value_text(s: &Settings, row: Row) -> String {
         },
         Row::File => s.file.clone(),
         Row::Scene => s.scene.name().into(),
+        Row::Playlist => s.playlist.summary(),
         Row::Cover => if s.cover { "visible" } else { "oculta" }.into(),
         Row::Card => if s.card { "al empezar cada canción" } else { "apagada" }.into(),
         Row::Transition => s.transition.name().into(),
@@ -326,6 +342,7 @@ fn label(row: Row) -> &'static str {
         Row::Source => "Fuente",
         Row::File => "Archivo",
         Row::Scene => "Escena",
+        Row::Playlist => "Lista",
         Row::Flowers => "Flores",
         Row::Speed => "Velocidad",
         Row::Capture => "Captura",
@@ -362,6 +379,11 @@ pub fn run(
     let mut canvas = Canvas::new(1, 1);
     let (mut clock, mut last, mut next_frame) = (18.0f32, Instant::now(), Instant::now());
     const PREVIEW_LEN: f32 = 75.0;
+    // Editor de la lista de escenas: `Some(i)` con la casilla `i` elegida.
+    let mut list_cursor: Option<usize> = None;
+    // Vueltas de la vista previa: en automática, cada vuelta es una "canción".
+    let mut turns = 0u32;
+    let mut preview_scene: Option<SceneKind> = None;
 
     loop {
         let visible = rows(settings);
@@ -376,12 +398,38 @@ pub fn run(
                     settings.file = clean_path(&text);
                     error = None;
                 }
+                Event::Key(key) if key.kind == KeyEventKind::Press && list_cursor.is_some() => {
+                    let n = SceneKind::ALL.len();
+                    let cur = list_cursor.unwrap_or(0);
+                    let half = n.div_ceil(2);
+                    match key.code {
+                        KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => return Ok(MenuResult::Quit),
+                        KeyCode::Esc | KeyCode::Char('q') | KeyCode::Backspace => {
+                            // Armar la lista cuesta: se guarda al cerrar, aunque después no se empiece.
+                            list_cursor = None;
+                            settings.save();
+                        }
+                        KeyCode::Up => list_cursor = Some((cur + n - 1) % n),
+                        KeyCode::Down | KeyCode::Tab => list_cursor = Some((cur + 1) % n),
+                        KeyCode::Left | KeyCode::Right => list_cursor = Some((cur + half) % (half * 2)).map(|c| c.min(n - 1)),
+                        KeyCode::Enter | KeyCode::Char(' ') => {
+                            settings.playlist.toggle(SceneKind::ALL[cur]);
+                        }
+                        KeyCode::Char('a') => settings.playlist.toggle_all(SceneKind::ALL[cur]),
+                        KeyCode::Char('o') => settings.playlist.order = settings.playlist.order.step(1),
+                        _ => {}
+                    }
+                }
                 Event::Key(key) if key.kind == KeyEventKind::Press => {
                     let editing = row == Row::File;
                     match key.code {
                         KeyCode::Esc => return Ok(MenuResult::Quit),
                         KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => {
                             return Ok(MenuResult::Quit);
+                        }
+                        KeyCode::Enter if row == Row::Playlist => {
+                            let first = settings.playlist.scenes()[0];
+                            list_cursor = SceneKind::ALL.iter().position(|k| *k == first);
                         }
                         KeyCode::Enter => {
                             settings.file = clean_path(&settings.file);
@@ -418,6 +466,8 @@ pub fn run(
         clock += dt;
         if clock >= PREVIEW_LEN {
             clock = 0.0;
+            turns += 1;
+            preview_scene = None;
             stage.new_track();
         }
         let mut bands = demo::bands_at(clock, PREVIEW_LEN, dt);
@@ -426,14 +476,29 @@ pub fn run(
         canvas.resize(size.width as usize, size.height as usize);
         let frame = Frame { dt, bands: &bands, progress: Some(clock / PREVIEW_LEN), song_len: PREVIEW_LEN, playing: true };
         stage.update(&frame, canvas.w, canvas.h);
-        // En automático, la vista previa muestra la escena del clima elegido o del demo.
+        // En automático, la vista previa elige como lo haría la lista, una vez por vuelta;
+        // en el editor de la lista, muestra la escena de la casilla elegida.
         let heard = Mood::nearest(bands.song.valence, bands.song.arousal);
-        stage.draw(settings.scene.resolve(settings.mood.unwrap_or(heard)), &mut canvas, &palette);
+        let shown = match (list_cursor, settings.scene) {
+            (Some(i), _) => SceneKind::ALL[i],
+            (None, SceneChoice::Fixed(kind)) => kind,
+            (None, SceneChoice::Auto) => {
+                let fits = preview_scene.filter(|k| settings.playlist.contains(*k));
+                let pick = fits.unwrap_or_else(|| settings.playlist.pick(settings.mood.unwrap_or(heard), turns as u64, preview_scene, turns));
+                preview_scene = Some(pick);
+                pick
+            }
+        };
+        stage.draw(shown, &mut canvas, &palette);
 
         terminal.draw(|f| {
             let area = f.area();
             canvas.render(f.buffer_mut(), area, mode);
-            draw_panel(f.buffer_mut(), area, settings, &visible, selected, error.as_deref(), &palette, mode);
+            if let Some(cur) = list_cursor {
+                draw_list_editor(f.buffer_mut(), area, settings, cur, &palette, mode);
+            } else {
+                draw_panel(f.buffer_mut(), area, settings, &visible, selected, error.as_deref(), &palette, mode);
+            }
         })?;
 
         next_frame += Duration::from_millis(33);
@@ -486,6 +551,94 @@ fn tail(text: &str, max: usize) -> String {
     }
     let keep: String = chars[chars.len() - max.saturating_sub(1)..].iter().collect();
     format!("…{keep}")
+}
+
+/// Caja con borde redondeado y título, como la del menú. Devuelve el área de adentro.
+fn draw_box(buf: &mut Buffer, area: Rect, width: u16, height: u16, title: &str, pal: &Palette, mode: ColorMode) -> Option<(Rect, Rgb)> {
+    let width = width.min(area.width.saturating_sub(2));
+    let height = height.min(area.height);
+    if width < 30 || height < 6 {
+        return None;
+    }
+    let panel = Rect { x: area.x + (area.width - width) / 2, y: area.y + (area.height - height) / 2, width, height };
+    let bg = pal.bg_top.scale(0.55);
+    let border = pal.petal.mix(bg, 0.35);
+    for y in panel.top()..panel.bottom() {
+        for x in panel.left()..panel.right() {
+            let edge_x = x == panel.left() || x == panel.right() - 1;
+            let edge_y = y == panel.top() || y == panel.bottom() - 1;
+            let ch = match (edge_x, edge_y, x == panel.left(), y == panel.top()) {
+                (true, true, true, true) => '╭',
+                (true, true, false, true) => '╮',
+                (true, true, true, false) => '╰',
+                (true, true, false, false) => '╯',
+                (true, false, _, _) => '│',
+                (false, true, _, _) => '─',
+                _ => ' ',
+            };
+            buf[(x, y)].set_char(ch).set_style(Style::new().fg(mode.color(border)).bg(mode.color(bg)));
+        }
+    }
+    let tx = panel.x + (panel.width.saturating_sub(Span::raw(title).width() as u16)) / 2;
+    put(buf, panel, mode, tx, panel.y, title, pal.petal.mix(Rgb::WHITE, 0.25));
+    Some((Rect { x: panel.x + 3, y: panel.y + 2, width: panel.width - 6, height: panel.height - 3 }, bg))
+}
+
+/// Editor de la lista: las escenas en dos columnas con su casilla. La vista previa de
+/// atrás muestra la escena elegida.
+fn draw_list_editor(buf: &mut Buffer, area: Rect, settings: &Settings, cursor: usize, pal: &Palette, mode: ColorMode) {
+    let n = SceneKind::ALL.len();
+    let half = n.div_ceil(2);
+    let Some((inner, bg)) = draw_box(buf, area, 62, half as u16 + 9, " ✿ Escenas en automática ", pal, mode) else { return };
+    let dim = bg.mix(Rgb::WHITE, 0.45);
+    let bright = bg.mix(Rgb::WHITE, 0.92);
+    let list = &settings.playlist;
+    let order = format!("Orden  ‹ {} ›", list.order.name());
+    put(buf, inner, mode, inner.x, inner.y, &order, pal.accent.mix(Rgb::WHITE, 0.25));
+    let count = format!("{} de {}", list.len(), n);
+    let cx = inner.right().saturating_sub(Span::raw(count.as_str()).width() as u16);
+    put(buf, inner, mode, cx, inner.y, &count, dim);
+    let col_w = inner.width / 2;
+    for (i, kind) in SceneKind::ALL.iter().enumerate() {
+        let (col, row) = (i / half, i % half);
+        let x = inner.x + col as u16 * col_w;
+        let y = inner.y + 2 + row as u16;
+        if y >= inner.bottom() {
+            continue;
+        }
+        let active = i == cursor;
+        let on = list.contains(*kind);
+        put(buf, inner, mode, x, y, if active { "▸" } else { " " }, pal.petal);
+        let mark = if on { "[✓]" } else { "[ ]" };
+        let color = match (on, active) {
+            (true, true) => pal.accent.mix(Rgb::WHITE, 0.4),
+            (true, false) => bright,
+            (false, true) => dim.mix(Rgb::WHITE, 0.3),
+            (false, false) => dim.mix(bg, 0.3),
+        };
+        put(buf, inner, mode, x + 2, y, mark, if on { pal.petal.mix(Rgb::WHITE, 0.3) } else { dim });
+        put(buf, inner, mode, x + 6, y, kind.name(), color);
+    }
+    let mut y = inner.y + 3 + half as u16;
+    // Según el ánimo: avisa qué ánimos se quedan sin escena propia.
+    if list.order == crate::playlist::Order::Mood && !list.is_all() {
+        let missing: Vec<&str> = Mood::ALL
+            .iter()
+            .filter(|m| !SceneKind::for_mood_all(**m).iter().any(|k| list.contains(*k)))
+            .map(|m| m.name())
+            .collect();
+        if !missing.is_empty() && y < inner.bottom() {
+            let text = tail(&format!("sin escena propia: {} (usan cualquiera de la lista)", missing.join(", ")), inner.width as usize);
+            put(buf, inner, mode, inner.x, y, &text, Rgb(1.0, 0.75, 0.5));
+        }
+    }
+    y += 1;
+    for hint in ["espacio marcar   ↑↓←→ moverse   a todas/una   o orden", "Esc volver al menú"] {
+        if y < inner.bottom() + 1 {
+            put(buf, inner, mode, inner.x, y, hint, dim);
+        }
+        y += 1;
+    }
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -570,7 +723,12 @@ fn draw_panel(
         }
         y += 1;
     }
-    let hints = ["Enter empezar   ↑↓ elegir   ←→ cambiar   Esc salir", "g herbario   ·   durante la música: m vuelve aquí"];
+    let first = if visible.get(selected) == Some(&Row::Playlist) {
+        "Enter editar la lista   ↑↓ elegir   ←→ orden   Esc salir"
+    } else {
+        "Enter empezar   ↑↓ elegir   ←→ cambiar   Esc salir"
+    };
+    let hints = [first, "g herbario   ·   durante la música: m vuelve aquí"];
     for hint in hints {
         if y < panel.bottom() - 1 {
             put(buf, inner, mode, inner.x, y, hint, dim);
@@ -598,6 +756,7 @@ mod tests {
             source: Source::File,
             file: "/Users/yo/Música/Mi Canción = mejor.mp3".into(),
             scene: SceneChoice::Fixed(SceneKind::Ocean),
+            playlist: Playlist::new(&[SceneKind::Coast, SceneKind::Storm], crate::playlist::Order::Shuffle),
             flowers: 2,
             speed: 1.5,
             global: true,
@@ -624,7 +783,7 @@ mod tests {
     fn rows_follow_the_choices() {
         let mut s = Settings::default();
         // En automática no hay fila de flores; con el jardín elegido, sí.
-        assert_eq!(rows(&s), [Row::Source, Row::Scene, Row::Mood, Row::Speed, Row::Cover, Row::Card, Row::Transition, Row::Clock, Row::Lyrics, Row::Energy, Row::Capture]);
+        assert_eq!(rows(&s), [Row::Source, Row::Scene, Row::Playlist, Row::Mood, Row::Speed, Row::Cover, Row::Card, Row::Transition, Row::Clock, Row::Lyrics, Row::Energy, Row::Capture]);
         s.scene = SceneChoice::Fixed(SceneKind::Garden);
         assert_eq!(
             rows(&s),
@@ -669,6 +828,9 @@ mod tests {
             let area = Rect::new(0, 0, w, h);
             let mut buf = Buffer::empty(area);
             draw_panel(&mut buf, area, &s, &rows(&s), 0, Some("un error largo ".repeat(10).as_str()), &pal, ColorMode::True);
+            draw_list_editor(&mut buf, area, &s, 7, &pal, ColorMode::True);
+            let few = Settings { playlist: Playlist::new(&[SceneKind::Storm], crate::playlist::Order::Mood), ..s.clone() };
+            draw_list_editor(&mut buf, area, &few, 19, &pal, ColorMode::True);
         }
     }
 }

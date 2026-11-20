@@ -49,11 +49,12 @@ pub enum SceneKind {
     Storm,
     Village,
     Balloons,
+    Album,
 }
 
 impl SceneKind {
     /// Todas las escenas, en el orden de la tecla `e`.
-    pub const ALL: [SceneKind; 20] = [
+    pub const ALL: [SceneKind; 21] = [
         SceneKind::Garden,
         SceneKind::Cosmos,
         SceneKind::Ocean,
@@ -74,6 +75,7 @@ impl SceneKind {
         SceneKind::Storm,
         SceneKind::Village,
         SceneKind::Balloons,
+        SceneKind::Album,
     ];
 
     /// Las letras van arriba: abajo está lo importante de la escena (el tocadiscos).
@@ -102,6 +104,7 @@ impl SceneKind {
             "tormenta" | "storm" | "barco" => Some(SceneKind::Storm),
             "nieve" | "pueblo" | "invierno" | "snow" => Some(SceneKind::Village),
             "globos" | "globo" | "balloons" => Some(SceneKind::Balloons),
+            "portada" | "caratula" | "carátula" | "album" | "cover" => Some(SceneKind::Album),
             "oceano" | "océano" | "mar" | "velero" | "ocean" => Some(SceneKind::Ocean),
             _ => None,
         }
@@ -130,6 +133,7 @@ impl SceneKind {
             SceneKind::Storm => "tormenta",
             SceneKind::Village => "pueblo nevado",
             SceneKind::Balloons => "globos",
+            SceneKind::Album => "portada",
         }
     }
 
@@ -156,6 +160,7 @@ impl SceneKind {
             SceneKind::Storm => "tormenta",
             SceneKind::Village => "nieve",
             SceneKind::Balloons => "globos",
+            SceneKind::Album => "portada",
         }
     }
 
@@ -163,10 +168,10 @@ impl SceneKind {
     /// siempre; las demás se reparten entre canciones.
     pub fn for_mood_all(mood: Mood) -> &'static [SceneKind] {
         match mood {
-            Mood::Happy => &[SceneKind::Garden, SceneKind::Fireworks, SceneKind::Sakura, SceneKind::Meadow, SceneKind::Coast, SceneKind::Forest, SceneKind::Concert, SceneKind::Pond, SceneKind::Balloons],
+            Mood::Happy => &[SceneKind::Garden, SceneKind::Fireworks, SceneKind::Sakura, SceneKind::Meadow, SceneKind::Coast, SceneKind::Forest, SceneKind::Concert, SceneKind::Pond, SceneKind::Balloons, SceneKind::Album],
             Mood::Serene => &[SceneKind::Campfire, SceneKind::Reef, SceneKind::Sakura, SceneKind::Aurora, SceneKind::Meadow, SceneKind::Forest, SceneKind::Pond, SceneKind::Village, SceneKind::Balloons],
             Mood::Sad => &[SceneKind::Ocean, SceneKind::Train, SceneKind::Lofi, SceneKind::Alley, SceneKind::Village],
-            Mood::Nostalgic => &[SceneKind::Cosmos, SceneKind::Train, SceneKind::Fireworks, SceneKind::Lofi, SceneKind::Aurora, SceneKind::Coast, SceneKind::Alley, SceneKind::Village],
+            Mood::Nostalgic => &[SceneKind::Cosmos, SceneKind::Train, SceneKind::Fireworks, SceneKind::Lofi, SceneKind::Aurora, SceneKind::Coast, SceneKind::Alley, SceneKind::Village, SceneKind::Album],
             Mood::Intense => &[SceneKind::City, SceneKind::Coast, SceneKind::Concert, SceneKind::Storm],
         }
     }
@@ -222,7 +227,7 @@ impl SceneChoice {
     }
 
     /// Orden en que se recorren las opciones, en el menú y con la tecla `e`.
-    const ORDER: [SceneChoice; 21] = [
+    const ORDER: [SceneChoice; 22] = [
         SceneChoice::Auto,
         SceneChoice::Fixed(SceneKind::Garden),
         SceneChoice::Fixed(SceneKind::Cosmos),
@@ -244,6 +249,7 @@ impl SceneChoice {
         SceneChoice::Fixed(SceneKind::Storm),
         SceneChoice::Fixed(SceneKind::Village),
         SceneChoice::Fixed(SceneKind::Balloons),
+        SceneChoice::Fixed(SceneKind::Album),
     ];
 
     /// Avanza (`step` = 1) o retrocede (−1) en el orden, dando la vuelta en los extremos.
@@ -275,12 +281,12 @@ mod tests {
     fn choice_cycles_through_every_scene_and_back_to_auto() {
         let mut choice = SceneChoice::Auto;
         let mut seen = Vec::new();
-        for _ in 0..21 {
+        for _ in 0..22 {
             seen.push(choice);
             choice = choice.next();
         }
         assert_eq!(choice, SceneChoice::Auto);
-        assert_eq!(seen.len(), 21);
+        assert_eq!(seen.len(), 22);
         for kind in SceneKind::ALL {
             assert!(seen.contains(&SceneChoice::Fixed(kind)));
             assert_eq!(SceneChoice::parse(kind.key()), Some(SceneChoice::Fixed(kind)));
@@ -293,7 +299,7 @@ mod tests {
             assert_eq!(choice.step(-1).step(1), choice);
         }
         assert_eq!(SceneChoice::Auto.step(1), SceneChoice::Fixed(SceneKind::Garden));
-        assert_eq!(SceneChoice::Auto.step(-1), SceneChoice::Fixed(SceneKind::Balloons));
+        assert_eq!(SceneChoice::Auto.step(-1), SceneChoice::Fixed(SceneKind::Album));
         // Todas las escenas están en el orden.
         for kind in SceneKind::ALL {
             assert!(SceneChoice::ORDER.contains(&SceneChoice::Fixed(kind)), "{kind:?}");

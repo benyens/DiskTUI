@@ -124,7 +124,7 @@ impl Settings {
     /// Formato `clave=valor`, una por línea. Lo que no se entiende se ignora.
     pub fn parse(text: &str) -> Settings {
         let mut s = Settings::default();
-        let (mut list, mut order) = (String::new(), String::new());
+        let (mut list, mut order, mut climax) = (String::new(), String::new(), false);
         for line in text.lines() {
             let Some((key, value)) = line.split_once('=') else { continue };
             let value = value.trim();
@@ -144,6 +144,7 @@ impl Settings {
                 "escena" => s.scene = SceneChoice::parse(value).unwrap_or(SceneChoice::Auto),
                 "lista" => list = value.to_string(),
                 "orden" => order = value.to_string(),
+                "climax" => climax = value == "si",
                 "flores" => s.flowers = value.parse().unwrap_or(3).clamp(1, 3),
                 "velocidad" => s.speed = value.parse().unwrap_or(1.0f32).clamp(0.25, 8.0),
                 "captura" => s.global = value == "sistema",
@@ -158,12 +159,13 @@ impl Settings {
             }
         }
         s.playlist = Playlist::parse(&list, &order);
+        s.playlist.on_climax = climax;
         s
     }
 
     pub fn serialize(&self) -> String {
         format!(
-            "fuente={}\narchivo={}\nescena={}\nlista={}\norden={}\nflores={}\nvelocidad={}\ncaptura={}\nanimo={}\ncaratula={}\ntarjeta={}\ntransicion={}\ncielo={}\nletras={}\nenergia={}\n",
+            "fuente={}\narchivo={}\nescena={}\nlista={}\norden={}\nclimax={}\nflores={}\nvelocidad={}\ncaptura={}\nanimo={}\ncaratula={}\ntarjeta={}\ntransicion={}\ncielo={}\nletras={}\nenergia={}\n",
             match self.source {
                 Source::Spotify => "spotify",
                 Source::Music => "music",
@@ -174,6 +176,7 @@ impl Settings {
             self.scene.key(),
             self.playlist.key(),
             self.playlist.order.key(),
+            if self.playlist.on_climax { "si" } else { "no" },
             self.flowers,
             self.speed,
             if self.global { "sistema" } else { "app" },
@@ -417,6 +420,7 @@ pub fn run(
                         }
                         KeyCode::Char('a') => settings.playlist.toggle_all(SceneKind::ALL[cur]),
                         KeyCode::Char('o') => settings.playlist.order = settings.playlist.order.step(1),
+                        KeyCode::Char('c') => settings.playlist.on_climax = !settings.playlist.on_climax,
                         _ => {}
                     }
                 }
@@ -593,7 +597,8 @@ fn draw_list_editor(buf: &mut Buffer, area: Rect, settings: &Settings, cursor: u
     let dim = bg.mix(Rgb::WHITE, 0.45);
     let bright = bg.mix(Rgb::WHITE, 0.92);
     let list = &settings.playlist;
-    let order = format!("Orden  ‹ {} ›", list.order.name());
+    let climax = if list.on_climax { " · y en el clímax" } else { "" };
+    let order = format!("Orden  ‹ {} ›{climax}", list.order.name());
     put(buf, inner, mode, inner.x, inner.y, &order, pal.accent.mix(Rgb::WHITE, 0.25));
     let count = format!("{} de {}", list.len(), n);
     let cx = inner.right().saturating_sub(Span::raw(count.as_str()).width() as u16);
@@ -633,7 +638,7 @@ fn draw_list_editor(buf: &mut Buffer, area: Rect, settings: &Settings, cursor: u
         }
     }
     y += 1;
-    for hint in ["espacio marcar   ↑↓←→ moverse   a todas/una   o orden", "Esc volver al menú"] {
+    for hint in ["espacio marcar   ↑↓←→ moverse   a todas/una   o orden", "c cambiar también en el clímax   ·   Esc volver al menú"] {
         if y < inner.bottom() + 1 {
             put(buf, inner, mode, inner.x, y, hint, dim);
         }
@@ -756,7 +761,11 @@ mod tests {
             source: Source::File,
             file: "/Users/yo/Música/Mi Canción = mejor.mp3".into(),
             scene: SceneChoice::Fixed(SceneKind::Ocean),
-            playlist: Playlist::new(&[SceneKind::Coast, SceneKind::Storm], crate::playlist::Order::Shuffle),
+            playlist: {
+                let mut p = Playlist::new(&[SceneKind::Coast, SceneKind::Storm], crate::playlist::Order::Shuffle);
+                p.on_climax = true;
+                p
+            },
             flowers: 2,
             speed: 1.5,
             global: true,

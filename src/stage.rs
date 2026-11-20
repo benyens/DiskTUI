@@ -16,6 +16,7 @@ use crate::ocean::Ocean;
 use crate::palette::Palette;
 use crate::reef::Reef;
 use crate::coast::Coast;
+use crate::album::Album;
 use crate::balloons::Balloons;
 use crate::snow::Village;
 use crate::storm::Storm;
@@ -42,6 +43,7 @@ pub struct Stage {
     meadow: Meadow,
     coast: Coast,
     forest: Forest,
+    album: Album,
     balloons: Balloons,
     snow: Village,
     storm: Storm,
@@ -68,6 +70,7 @@ impl Stage {
             meadow: Meadow::new(seed),
             coast: Coast::new(seed),
             forest: Forest::new(seed),
+            album: Album::new(seed),
             balloons: Balloons::new(seed),
             snow: Village::new(seed),
             storm: Storm::new(seed),
@@ -107,11 +110,12 @@ impl Stage {
 
     /// Carátula de lo que suena, para las escenas que la muestran (el tocadiscos lofi).
     pub fn set_cover(&mut self, cover: Option<crate::palette::Cover>) {
+        self.album.cover = cover.clone();
         self.lofi.cover = cover;
     }
 
     /// El cielo compartido de cada escena que lo tiene.
-    fn sceneries(&mut self) -> [&mut Scenery; 19] {
+    fn sceneries(&mut self) -> [&mut Scenery; 20] {
         [
             &mut self.garden.scenery,
             &mut self.ocean.scenery,
@@ -132,10 +136,11 @@ impl Stage {
             &mut self.storm.scenery,
             &mut self.snow.scenery,
             &mut self.balloons.scenery,
+            &mut self.album.scenery,
         ]
     }
 
-    fn all(&mut self) -> [&mut dyn Scene; 20] {
+    fn all(&mut self) -> [&mut dyn Scene; 21] {
         [
             &mut self.garden,
             &mut self.cosmos,
@@ -157,6 +162,7 @@ impl Stage {
             &mut self.storm,
             &mut self.snow,
             &mut self.balloons,
+            &mut self.album,
         ]
     }
 
@@ -192,6 +198,7 @@ impl Stage {
             SceneKind::Meadow => &mut self.meadow,
             SceneKind::Coast => &mut self.coast,
             SceneKind::Forest => &mut self.forest,
+            SceneKind::Album => &mut self.album,
             SceneKind::Balloons => &mut self.balloons,
             SceneKind::Village => &mut self.snow,
             SceneKind::Storm => &mut self.storm,
@@ -218,6 +225,7 @@ impl Stage {
             SceneKind::Meadow => self.meadow.draw(canvas, pal),
             SceneKind::Coast => self.coast.draw(canvas, pal),
             SceneKind::Forest => self.forest.draw(canvas, pal),
+            SceneKind::Album => self.album.draw(canvas, pal),
             SceneKind::Balloons => self.balloons.draw(canvas, pal),
             SceneKind::Village => self.snow.draw(canvas, pal),
             SceneKind::Storm => self.storm.draw(canvas, pal),

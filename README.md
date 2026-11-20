@@ -16,9 +16,9 @@ carátula.
 ![audio local](https://img.shields.io/badge/audio-100%25%20local-green)
 ![Vibecoded](https://img.shields.io/badge/vibecoded-con%20Claude-8A2BE2)
 
-<img src="docs/escenas.gif" alt="Las veinte escenas de DiskTUI, una tras otra" width="90%">
+<img src="docs/escenas.gif" alt="Las veintiuna escenas de DiskTUI, una tras otra" width="90%">
 
-<sub>Las veinte escenas, generadas desde la salida real del programa (`--demo`).</sub>
+<sub>Las veintiuna escenas, generadas desde la salida real del programa (`--demo`).</sub>
 
 **[Instalar](#instalación) · [Usar](#uso) · [Escenas](#escenas) · [Cómo entiende la canción](#cómo-entiende-la-canción) · [Vibecoded](#hecho-con-vibe-coding)**
 
@@ -73,6 +73,8 @@ carátula.
 | 🐟 **Estanque** · kois que nadan entre nenúfares y flores de loto | ⛈️ **Tormenta** · un barco entre olas que crecen con los graves; relámpagos en los clímax |
 | <img src="docs/nieve.png" alt="Pueblo nevado"> | <img src="docs/globos.png" alt="Globos aerostáticos"> |
 | 🏘️ **Pueblo nevado** · las ventanas se encienden durante la canción; en el clímax suena la campana | 🎈 **Globos** · globos aerostáticos sobre un valle; encienden el quemador al pulso |
+| <img src="docs/portada.png" alt="Portada"> | |
+| 💿 **Portada** · la carátula de lo que suena en pixel art, que se enfoca con el coro | |
 
 Con la escena en *automática* (el valor por defecto), cada canción elige la suya según su
 ánimo. La tecla `e` las recorre a mano.
@@ -176,7 +178,8 @@ También se puede saltar el menú desde la línea de comandos:
 | --- | --- |
 | `--lista <escenas>` | En automática, solo estas escenas, separadas por coma: `--lista ruta,bosque,nieve` |
 | `--orden <modo>` | Cómo se turnan en automática: `animo` (por defecto), `azar` u `orden` |
-| `--escena <nombre>` | `auto` (por defecto: la elige el ánimo), `jardin`, `sistema`, `oceano`, `ciudad`, `fogata`, `tren`, `fondo`, `fuegos`, `cerezos`, `lofi`, `aurora`, `mariposas`, `ruta`, `bosque`, `concierto`, `callejon`, `estanque`, `tormenta`, `nieve` o `globos` |
+| `--en-climax` | En automática, cambia también de escena en los clímax |
+| `--escena <nombre>` | `auto` (por defecto: la elige el ánimo), `jardin`, `sistema`, `oceano`, `ciudad`, `fogata`, `tren`, `fondo`, `fuegos`, `cerezos`, `lofi`, `aurora`, `mariposas`, `ruta`, `bosque`, `concierto`, `callejon`, `estanque`, `tormenta`, `nieve`, `globos` o `portada` |
 | `--flores <n>` | Flores del jardín, de 1 a 3. Por defecto 3 |
 | `--petalos <n>` | Pétalos de la flor principal, de 3 a 12 |
 | `--velocidad <x>` | Qué tan rápido crece la escena. `2` = el doble. Por defecto 1 |
@@ -198,7 +201,8 @@ También se puede saltar el menú desde la línea de comandos:
 | Tecla | Acción |
 | --- | --- |
 | `x` | Sacar de tu lista la escena que se ve (o agregarla, si no estaba) |
-| `e` | Cambiar de escena: automática, jardín, sistema solar, océano, ciudad, fogata, tren, fondo del mar, fuegos artificiales, cerezos, cuarto lofi, aurora boreal, mariposas, ruta costera, bosque, concierto, callejón, estanque, tormenta, pueblo nevado, globos |
+| `E` | Fijar la escena que se ve para esta canción: en automática siempre saldrá con esa (`E` otra vez la suelta) |
+| `e` | Cambiar de escena: automática, jardín, sistema solar, océano, ciudad, fogata, tren, fondo del mar, fuegos artificiales, cerezos, cuarto lofi, aurora boreal, mariposas, ruta costera, bosque, concierto, callejón, estanque, tormenta, pueblo nevado, globos, portada |
 | `←` / `→` | Retroceder / adelantar 10 segundos (archivo, Spotify, Apple Music) |
 | `g` | Grabar un GIF de 8 segundos en `~/Pictures/DiskTUI` (`g` otra vez lo corta antes) |
 | `v` | Grabar un GIF vertical (9:16) con carátula y título, para historias |
@@ -299,15 +303,15 @@ varias escenas, cada canción se queda siempre con la misma:
 
 | Ánimo | Escena |
 | --- | --- |
-| alegre | 🌼 jardín al sol, 🎆 fuegos artificiales, 🌸 cerezos, 🦋 mariposas, 🚗 ruta costera, 🌳 bosque, 🐟 estanque, 🎤 concierto o 🎈 globos |
+| alegre | 🌼 jardín al sol, 🎆 fuegos artificiales, 🌸 cerezos, 🦋 mariposas, 🚗 ruta costera, 🌳 bosque, 🐟 estanque, 🎤 concierto, 🎈 globos o 💿 portada |
 | serena | 🔥 fogata al atardecer, 🪼 fondo del mar, 🌸 cerezos, 🌌 aurora boreal, 🦋 mariposas, 🌳 bosque, 🐟 estanque, 🏘️ pueblo nevado o 🎈 globos |
-| nostálgica | 🪐 sistema solar, 🚆 tren nocturno, 🎆 fuegos artificiales, 🐈 cuarto lofi, 🌌 aurora boreal, 🚗 ruta costera de noche, 🏮 callejón o 🏘️ pueblo nevado |
+| nostálgica | 🪐 sistema solar, 🚆 tren nocturno, 🎆 fuegos artificiales, 🐈 cuarto lofi, 🌌 aurora boreal, 🚗 ruta costera de noche, 🏮 callejón, 🏘️ pueblo nevado o 💿 portada |
 | triste | ⛵ océano con lluvia, 🚆 tren bajo la lluvia, 🐈 cuarto lofi, 🏮 callejón o 🏘️ pueblo nevado |
 | intensa | 🌆 ciudad con tormenta, 🚗 ruta costera a toda velocidad, 🎤 concierto o ⛈️ tormenta en alta mar |
 
 La elección se hace una vez por canción, cuando el análisis ya es fiable: de inmediato en
 modo archivo, a los ~20 segundos en Spotify. Las escenas se funden una en otra. La tecla
-`e` recorre automática y las veinte escenas.
+`e` recorre automática y las veintiuna escenas.
 
 ### Tu lista de escenas
 
@@ -323,6 +327,7 @@ las casillas y la vista previa muestra la escena en la que estás parado.
 | `↑↓←→` | Moverse entre las escenas |
 | `a` | Todas; si ya estaban todas, solo la elegida (para armar desde cero) |
 | `o` | Cambiar el orden |
+| `c` | Cambiar también en el clímax (encender o apagar) |
 | `Esc` | Volver al menú (la lista queda guardada) |
 
 El orden dice cómo se turnan:
@@ -336,6 +341,16 @@ El orden dice cómo se turnan:
 Mientras suena, `x` saca de la lista la escena que estás viendo y pasa a otra; si
 llegaste a una escena con `e` que no está en la lista, `x` la agrega. Desde la línea de
 comandos: `--lista ruta,bosque,nieve --orden azar`.
+
+**En el clímax.** Con `c` en el editor (o `--en-climax`), una canción puede pasar por
+más de una escena: en cada clímax salta a otra de tu lista, con la transición de la
+canción. Entre un cambio y otro pasan al menos 40 segundos, y nunca en los primeros 25
+de la canción.
+
+**Una escena para cada canción.** Si una canción tiene que ir siempre en la ruta costera,
+ponla en esa escena (con `e`, o esperando a que salga) y aprieta `E`: desde ahí, en
+automática, esa canción sale siempre con esa escena, esté o no en tu lista, y sin esperar
+el análisis. `E` otra vez la suelta. Se guarda en `escenas.tsv`, junto al herbario.
 
 ### Click en la escena
 
@@ -361,6 +376,7 @@ Con el mouse, un click hace que la escena responda donde lo hiciste:
 | tormenta | cae un rayo ahí |
 | pueblo nevado | se enciende la casa entera y se levanta un remolino de nieve |
 | globos | despega un globo nuevo desde ahí |
+| portada | un brillo cruza la carátula y salen motas de sus colores |
 
 ### Tarjeta de la canción
 
@@ -665,6 +681,21 @@ Un velero zarpa al empezar la canción y llega al faro cuando termina.
 
 </details>
 
+<details>
+<summary><b>💿 Portada</b></summary>
+
+| Señal | Qué hace |
+| --- | --- |
+| Canción nueva | La carátula aparece pixelada y se enfoca en un par de segundos |
+| Intensidad | Qué tan fina se ve: el coro la enfoca, el verso la vuelve más gruesa |
+| Bombo | El halo alrededor late |
+| Pulso | Salen motas con los colores del borde de la carátula |
+| **Clímax** y cambios de sección | Un brillo la cruza en diagonal |
+| Graves, medios y agudos | Las barras de abajo, de izquierda a derecha |
+| Sin carátula | Un vinilo que gira, con los colores de la paleta |
+
+</details>
+
 ## Cómo detecta los clímax
 
 Las tres bandas se normalizan cuadro a cuadro, así que por sí solas no distinguen un verso
@@ -812,6 +843,8 @@ flowchart LR
 | `src/koi.rs` | Escena estanque: kois, nenúfares y ondas |
 | `src/storm.rs` | Escena tormenta: barco, olas, relámpagos y faro |
 | `src/snow.rs` | Escena pueblo nevado: casas, iglesia, nieve y humo |
+| `src/album.rs` | Escena portada: la carátula en pixel art, con halo, reflejo y barras |
+| `src/pins.rs` | Escenas fijadas por canción (tecla `E`) |
 | `src/balloons.rs` | Escena globos: globos aerostáticos sobre un valle de cultivos |
 | `src/karaoke.rs` | Modo karaoke: la línea en letras grandes que se llenan al cantarse |
 | `src/sleep.rs` | Temporizador para dormir |

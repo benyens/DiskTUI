@@ -9,8 +9,11 @@
 //! - **al azar**: cualquiera de la lista, sin repetir la anterior.
 //! - **en orden**: una tras otra, en el orden de la tecla `e`.
 //!
-//! Se guarda en la configuración como `lista=jardin,ruta,bosque` (o `todas`) y
-//! `orden=animo|azar|orden`.
+//! Además, con *en el clímax*, una canción larga puede pasar por más de una escena: en
+//! cada clímax (con al menos un rato entre cambios) salta a otra de la lista.
+//!
+//! Se guarda en la configuración como `lista=jardin,ruta,bosque` (o `todas`),
+//! `orden=animo|azar|orden` y `climax=si|no`.
 
 use crate::mood::Mood;
 use crate::scene::SceneKind;
@@ -61,11 +64,13 @@ pub struct Playlist {
     /// Escenas elegidas, en el orden de [`SceneKind::ALL`]. Nunca queda vacía.
     scenes: Vec<SceneKind>,
     pub order: Order,
+    /// También cambiar de escena en los clímax, no solo entre canciones.
+    pub on_climax: bool,
 }
 
 impl Default for Playlist {
     fn default() -> Self {
-        Playlist { scenes: SceneKind::ALL.to_vec(), order: Order::Mood }
+        Playlist { scenes: SceneKind::ALL.to_vec(), order: Order::Mood, on_climax: false }
     }
 }
 
@@ -81,7 +86,7 @@ fn mix(mut x: u64) -> u64 {
 impl Playlist {
     /// Una lista con estas escenas. Si viene vacía, todas: una lista vacía no sirve.
     pub fn new(scenes: &[SceneKind], order: Order) -> Playlist {
-        let mut p = Playlist { scenes: Vec::new(), order };
+        let mut p = Playlist { scenes: Vec::new(), order, on_climax: false };
         for kind in SceneKind::ALL {
             if scenes.contains(&kind) {
                 p.scenes.push(kind);
@@ -136,13 +141,14 @@ impl Playlist {
         }
         let mut wanted = self.scenes.clone();
         wanted.push(kind);
-        *self = Playlist::new(&wanted, self.order);
+        *self = Playlist { on_climax: self.on_climax, ..Playlist::new(&wanted, self.order) };
         true
     }
 
     /// Todas adentro; si ya estaban todas, deja solo `keep` (para empezar a armar desde cero).
     pub fn toggle_all(&mut self, keep: SceneKind) {
-        *self = if self.is_all() { Playlist::new(&[keep], self.order) } else { Playlist::new(&SceneKind::ALL, self.order) };
+        let fresh = if self.is_all() { Playlist::new(&[keep], self.order) } else { Playlist::new(&SceneKind::ALL, self.order) };
+        *self = Playlist { on_climax: self.on_climax, ..fresh };
     }
 
     /// Resumen para el menú: "todas · según el ánimo", "5 escenas · en orden".
@@ -152,7 +158,8 @@ impl Playlist {
             1 => format!("solo {}", self.scenes[0].name()),
             n => format!("{n} escenas"),
         };
-        format!("{what} · {}", self.order.name())
+        let climax = if self.on_climax { " · y en el clímax" } else { "" };
+        format!("{what} · {}{climax}", self.order.name())
     }
 
     /// ¿Hay que esperar a conocer el ánimo para elegir? Solo en el orden según el ánimo.
@@ -193,6 +200,26 @@ impl Playlist {
                     .unwrap_or(list[0])
             }
         }
+    }
+
+    /// Otra escena para cambiar en un clímax, distinta de la que se ve. `None` si no hay
+    /// otra (lista de una sola, o el ánimo con una sola escena en la lista).
+    pub fn next_for_climax(&self, mood: Mood, active: SceneKind, turn: u32) -> Option<SceneKind> {
+        if self.order == Order::Sequence {
+            let next = self.pick(mood, 0, Some(active), turn);
+            return (next != active).then_some(next);
+        }
+        let pool: Vec<SceneKind> = match self.order {
+            Order::Mood => {
+                let fits: Vec<SceneKind> = SceneKind::for_mood_all(mood).iter().copied().filter(|k| self.contains(*k) && *k != active).collect();
+                if fits.is_empty() { self.scenes.iter().copied().filter(|k| *k != active).collect() } else { fits }
+            }
+            _ => self.scenes.iter().copied().filter(|k| *k != active).collect(),
+        };
+        if pool.is_empty() {
+            return None;
+        }
+        Some(pool[(mix(turn as u64 ^ 0xC11A) % pool.len() as u64) as usize])
     }
 }
 
@@ -275,9 +302,30 @@ mod tests {
     }
 
     #[test]
+    fn a_climax_moves_to_another_scene() {
+        let p = Playlist::new(&[Garden, Fireworks, City], Order::Mood);
+        for turn in 0..30 {
+            let next = p.next_for_climax(Mood::Happy, Garden, turn);
+            assert_eq!(next, Some(Fireworks), "la otra alegre de la lista");
+        }
+        // A la intensa solo le va la ciudad: salta a cualquiera de la lista.
+        assert!(matches!(p.next_for_climax(Mood::Intense, City, 3), Some(Garden | Fireworks)));
+        let seq = Playlist::new(&[Ocean, Forest], Order::Sequence);
+        assert_eq!(seq.next_for_climax(Mood::Sad, Ocean, 0), Some(Forest));
+        assert_eq!(Playlist::new(&[Pond], Order::Shuffle).next_for_climax(Mood::Happy, Pond, 0), None);
+        // Al prender o sacar escenas no se pierde la opción.
+        let mut q = Playlist { on_climax: true, ..Playlist::new(&[Pond], Order::Shuffle) };
+        q.toggle(Storm);
+        q.toggle_all(Storm);
+        assert!(q.on_climax);
+    }
+
+    #[test]
     fn summary_reads_well() {
         assert_eq!(Playlist::default().summary(), "todas · según el ánimo");
         assert_eq!(Playlist::new(&[Coast], Order::Shuffle).summary(), "solo ruta costera · al azar");
         assert_eq!(Playlist::new(&[Coast, Pond], Order::Sequence).summary(), "2 escenas · en orden");
+        let climax = Playlist { on_climax: true, ..Playlist::default() };
+        assert_eq!(climax.summary(), "todas · según el ánimo · y en el clímax");
     }
 }

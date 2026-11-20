@@ -21,6 +21,7 @@ mod idle;
 mod karaoke;
 mod lyrics;
 mod coast;
+mod album;
 mod balloons;
 mod snow;
 mod storm;
@@ -39,6 +40,7 @@ mod mood;
 mod ocean;
 mod palette;
 mod paths;
+mod pins;
 mod playlist;
 mod plant;
 mod poster;
@@ -104,10 +106,11 @@ USO
 OPCIONES
   --lista <escenas>         En automática, solo estas escenas (ej. ruta,bosque,nieve)
   --orden <modo>            Cómo se turnan en automática: animo, azar u orden
+  --en-climax               En automática, cambia también de escena en los clímax
   --escena <nombre>         auto (según el ánimo), jardin, sistema, oceano, ciudad,
                             fogata, tren, fondo, fuegos, cerezos, lofi, aurora, mariposas,
                             ruta, bosque, concierto, callejon, estanque, tormenta,
-                            nieve o globos
+                            nieve, globos o portada
   --fps <n>                 Cuadros por segundo (por defecto 60)
   --petalos <n>             Pétalos de la flor principal, 3 a 12 (por defecto según la canción)
   --flores <n>              Cantidad de flores, 1 a 3 (por defecto 3)
@@ -132,7 +135,9 @@ OPCIONES
 TECLAS
   q / Esc    salir          espacio   pausa
   + / -      volumen        h         mostrar u ocultar el HUD
-  e          cambiar de escena (automática y las diecisiete escenas)
+  e          cambiar de escena (automática y todas las escenas)
+  x          sacar de tu lista la escena que se ve (o agregarla)
+  E          fijar la escena que se ve para esta canción (o soltarla)
   g          grabar un GIF de 8 segundos en ~/Pictures/DiskTUI
   v          grabar un GIF vertical (9:16) con carátula y título, para historias
   d          panel de detalles: qué entendió de la canción, la fuente de audio,
@@ -171,6 +176,8 @@ struct Args {
     /// `--lista` y `--orden`: la lista de escenas de la automática.
     playlist: Option<String>,
     order: Option<playlist::Order>,
+    /// `--en-climax`: cambiar de escena también en los clímax.
+    on_climax: bool,
     speed: Option<f32>,
     mood: Option<Mood>,
     hud: bool,
@@ -210,6 +217,7 @@ fn parse_args() -> Result<Args> {
         scene: None,
         playlist: None,
         order: None,
+        on_climax: false,
         speed: None,
         mood: None,
         hud: true,
@@ -275,7 +283,7 @@ fn parse_args() -> Result<Args> {
                 let name = value("--escena")?;
                 args.scene = Some(
                     SceneChoice::parse(&name)
-                        .ok_or_else(|| anyhow::anyhow!("escena desconocida: {name} (usa auto, jardin, sistema, oceano, ciudad, fogata, tren, fondo, fuegos, cerezos, lofi, aurora, mariposas, ruta, bosque, concierto, callejon, estanque, tormenta, nieve o globos)"))?,
+                        .ok_or_else(|| anyhow::anyhow!("escena desconocida: {name} (usa auto, jardin, sistema, oceano, ciudad, fogata, tren, fondo, fuegos, cerezos, lofi, aurora, mariposas, ruta, bosque, concierto, callejon, estanque, tormenta, nieve, globos o portada)"))?,
                 );
             }
             "--lista" => {
@@ -285,6 +293,7 @@ fn parse_args() -> Result<Args> {
                 }
                 args.playlist = Some(list);
             }
+            "--en-climax" | "--en-clímax" => args.on_climax = true,
             "--orden" => {
                 let name = value("--orden")?;
                 args.order = Some(playlist::Order::parse(&name).ok_or_else(|| anyhow::anyhow!("orden desconocido: {name} (usa animo, azar u orden)"))?);
@@ -390,6 +399,7 @@ fn start() -> Result<()> {
     if let Some(order) = args.order {
         settings.playlist.order = order;
     }
+    settings.playlist.on_climax |= args.on_climax;
     if let Some(transition) = args.transition {
         settings.transition = transition;
     }
@@ -585,6 +595,8 @@ fn run(
     // Canción para la que ya se eligió escena en automática ("al azar" y "en orden" eligen
     // apenas empieza la canción: no esperan a conocer el ánimo).
     let mut auto_track: Option<(String, String)> = None;
+    // Para cambiar en el clímax: segundos con la misma escena, y cuántos cambios van.
+    let (mut same_scene_for, mut shown, mut climax_turns) = (0.0f32, active, 0u32);
     let mut chosen_for_track = false;
     // Cambio de escena: la anterior sigue viva y se funde con la nueva (escena, avance,
     // duración en segundos).
@@ -606,6 +618,7 @@ fn run(
     let mut gif_job: Option<std::sync::mpsc::Receiver<Result<std::path::PathBuf>>> = None;
     let mut corrections = tuning::Corrections::load();
     let mut favorites = favorites::Favorites::load();
+    let mut pins = pins::Pins::load();
     let mut applied_mood = args.mood;
     let mut palette = Palette::default();
     let mut target_palette = palette;
@@ -726,6 +739,21 @@ fn run(
                             _ => "",
                         };
                         notice = Some((format!("escena: {}{hint}", choice.name()), Instant::now()));
+                    }
+                    // Fija la escena que se ve para esta canción (o la suelta).
+                    KeyCode::Char('E') => {
+                        let text = if current.title.trim().is_empty() {
+                            "esta canción no tiene título: no se puede fijar su escena".to_string()
+                        } else {
+                            let now = pins.toggle(&current.artist, &current.title, active);
+                            let later = if choice == SceneChoice::Auto { "" } else { " (en automática)" };
+                            match (now, pins.save()) {
+                                (_, Err(e)) => format!("no se pudo guardar: {e}"),
+                                (Some(kind), Ok(())) => format!("📌 esta canción saldrá siempre en {}{later}", kind.name()),
+                                (None, Ok(())) => "esta canción ya no tiene escena fija".to_string(),
+                            }
+                        };
+                        notice = Some((text, Instant::now()));
                     }
                     // Saca la escena de la lista de la automática (o la agrega, si no estaba).
                     KeyCode::Char('x') => {
@@ -884,7 +912,9 @@ fn run(
         }
         let heard_mood = Mood::nearest(song.valence, song.arousal);
         let mood_now = wanted_mood.unwrap_or(heard_mood);
-        let ready = if playlist.needs_mood() {
+        // Una canción con escena fijada (tecla `E`) sale siempre con esa, sin esperar el ánimo.
+        let pinned = pins.get(&current.artist, &current.title);
+        let ready = if playlist.needs_mood() && pinned.is_none() {
             !chosen_for_track && (wanted_mood.is_some() || song.settled >= 0.95)
         } else {
             auto_track.as_ref().is_none_or(|(artist, title)| *artist != current.artist || *title != current.title)
@@ -893,7 +923,7 @@ fn run(
             chosen_for_track = true;
             auto_track = Some((current.artist.clone(), current.title.clone()));
             let salt = SceneKind::salt(&current.artist, &current.title);
-            let target = playlist.pick(mood_now, salt, auto_started.then_some(active), tracks_seen);
+            let target = pinned.unwrap_or_else(|| playlist.pick(mood_now, salt, auto_started.then_some(active), tracks_seen));
             auto_started = true;
             if target != active {
                 // En la primera canción no hay nada que fundir: se cambia de inmediato.
@@ -902,6 +932,28 @@ fn run(
                     scene_fade = Some((active, transition::Transition::new(track_style, tracks_seen.wrapping_mul(7919))));
                 }
                 active = target;
+            }
+        }
+        // En el clímax, salta a otra escena de la lista (con la opción encendida, sin escena
+        // fijada, y con al menos 40 s desde el último cambio para que no se vuelva loco).
+        if active != shown {
+            shown = active;
+            same_scene_for = 0.0;
+        }
+        same_scene_for += dt;
+        if choice == SceneChoice::Auto
+            && playlist.on_climax
+            && pinned.is_none()
+            && tick.bands.climax
+            && session.playing()
+            && scene_fade.is_none()
+            && same_scene_for > 40.0
+            && session.position().as_secs_f32() > 25.0
+        {
+            climax_turns += 1;
+            if let Some(next) = playlist.next_for_climax(mood_now, active, tracks_seen.wrapping_mul(97).wrapping_add(climax_turns)) {
+                scene_fade = Some((active, transition::Transition::new(track_style, climax_turns.wrapping_mul(7919))));
+                active = next;
             }
         }
         if let Some((_, tr)) = &mut scene_fade
@@ -1162,6 +1214,10 @@ fn dump_frame(secs: f32, w: u16, h: u16, args: &Args) -> String {
     let speed = args.speed.unwrap_or(1.0);
     let mut stage = Stage::new(args.seed.unwrap_or(0xD3E0), Garden::new(0xD3E0, args.flowers.unwrap_or(3), args.petals));
     stage.force_mood(args.mood);
+    // Depuración: una carátula de prueba para la escena portada y el tocadiscos.
+    if let Some(cover) = std::env::var_os("DISKTUI_CARATULA").and_then(|p| std::fs::read(p).ok()).and_then(|b| palette::Cover::from_image_bytes(&b)) {
+        stage.set_cover(Some(cover));
+    }
     if args.clock {
         stage.set_clock(Some(args.hour.unwrap_or_else(paths::hour_now)));
     }

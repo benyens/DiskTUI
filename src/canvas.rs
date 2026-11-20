@@ -111,20 +111,26 @@ impl Canvas {
     /// `before`, 1 solo lo nuevo. Los puntos y glifos de cada lado se disuelven en el fondo
     /// en su mitad del fundido. Si los tamaños no coinciden, no hace nada.
     pub fn crossfade(&mut self, before: &Canvas, t: f32) {
+        self.reveal(before, |_, _| t);
+    }
+
+    /// Como `crossfade`, pero cada píxel con su propia proporción: `mask(x, y)` = 0 muestra
+    /// `before` ahí, 1 lo nuevo. Sirve para cortinas, círculos y barridos.
+    pub fn reveal(&mut self, before: &Canvas, mask: impl Fn(usize, usize) -> f32) {
         if before.w != self.w || before.h != self.h {
             return;
         }
-        let t = t.clamp(0.0, 1.0);
-        for (p, old) in self.px.iter_mut().zip(&before.px) {
-            *p = old.mix(*p, t);
+        let mut amount = vec![0.0f32; self.px.len()];
+        for (i, m) in amount.iter_mut().enumerate() {
+            *m = mask(i % self.w.max(1), i / self.w.max(1)).clamp(0.0, 1.0);
+            self.px[i] = before.px[i].mix(self.px[i], *m);
+            self.cover[i] = before.cover[i] + (self.cover[i] - before.cover[i]) * *m;
         }
-        for (c, old) in self.cover.iter_mut().zip(&before.cover) {
-            *c = old + (*c - old) * t;
-        }
-        // Primera mitad: queda la capa fina de antes, apagándose; segunda: entra la nueva.
-        let (strength, from_before) = if t < 0.5 { (1.0 - 2.0 * t, true) } else { (2.0 * t - 1.0, false) };
         for i in 0..self.w * self.h {
             let (cx, cy) = (i % self.w, i / self.w);
+            let t = 0.5 * (amount[cy * 2 * self.w + cx] + amount[(cy * 2 + 1) * self.w + cx]);
+            // Primera mitad: queda la capa fina de antes, apagándose; segunda: entra la nueva.
+            let (strength, from_before) = if t < 0.5 { (1.0 - 2.0 * t, true) } else { (2.0 * t - 1.0, false) };
             let under = self.px[cy * 2 * self.w + cx].mix(self.px[(cy * 2 + 1) * self.w + cx], 0.5);
             if from_before {
                 self.dots[i] = before.dots[i];

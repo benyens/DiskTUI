@@ -43,6 +43,7 @@ mod stage;
 mod structure;
 mod text;
 mod train;
+mod transition;
 mod tuning;
 #[cfg(all(target_os = "macos", feature = "tap-app"))]
 mod tap_macos;
@@ -97,6 +98,8 @@ OPCIONES
   --caratula                Muestra la carátula del disco en una esquina
   --mini                    Para un panel chico (tmux): HUD de una línea, una flor, 30 FPS
   --sin-tarjeta             No muestra el título grande al empezar cada canción
+  --transicion <nombre>     Entre canciones: auto (una distinta cada vez), fundido,
+                            mariposas, petalos, iris, ola o destellos
   --sin-hud                 Oculta el HUD (título, barra de reproducción)
   --dispositivo <nombre>    Modo Spotify: captura desde esa entrada (ej. \"BlackHole\")
   --global                  Modo Spotify: captura todo el audio del sistema
@@ -143,6 +146,8 @@ struct Args {
     cover: bool,
     /// Tarjeta con el título al empezar cada canción.
     card: bool,
+    /// Transición entre canciones, si se pidió una.
+    transition: Option<transition::Choice>,
     /// Modo mini, para un panel chico: HUD de una línea, una flor, 30 FPS.
     mini: bool,
     device: Option<String>,
@@ -167,6 +172,7 @@ fn parse_args() -> Result<Args> {
         hud: true,
         cover: false,
         card: true,
+        transition: None,
         mini: false,
         device: None,
         global: false,
@@ -197,6 +203,12 @@ fn parse_args() -> Result<Args> {
             "--mini" => args.mini = true,
             "--caratula" | "--carátula" => args.cover = true,
             "--sin-tarjeta" => args.card = false,
+            "--transicion" | "--transición" => {
+                let name = value("--transicion")?;
+                args.transition = Some(transition::Choice::parse(&name).ok_or_else(|| {
+                    anyhow::anyhow!("transición desconocida: {name} (usa auto, fundido, mariposas, petalos, iris, ola o destellos)")
+                })?);
+            }
             "--global" => args.global = true,
             "--fps" => args.fps = value("--fps")?.parse::<u32>()?.clamp(10, 240),
             "--petalos" | "--pétalos" => args.petals = Some(value("--petalos")?.parse::<u32>()?.clamp(3, 12)),
@@ -260,6 +272,7 @@ struct RunOptions {
     hud: bool,
     cover: bool,
     card: bool,
+    transition: transition::Choice,
     mini: bool,
     /// Al terminar la canción se vuelve al menú en vez de salir.
     from_menu: bool,
@@ -294,6 +307,9 @@ fn start() -> Result<()> {
     let mut settings = Settings::load();
     if let Some(scene) = args.scene {
         settings.scene = scene;
+    }
+    if let Some(transition) = args.transition {
+        settings.transition = transition;
     }
     if let Some(flowers) = args.flowers {
         settings.flowers = flowers;
@@ -417,6 +433,7 @@ fn launch(
             hud: args.hud,
             cover: settings.cover,
             card: settings.card,
+            transition: settings.transition,
             mini: args.mini,
             from_menu,
         };
@@ -454,10 +471,12 @@ fn run(
     let mut chosen_for_track = false;
     // Cambio de escena: la anterior sigue viva y se funde con la nueva (escena, avance,
     // duración en segundos).
-    let mut scene_fade: Option<(SceneKind, f32, f32)> = None;
+    let mut scene_fade: Option<(SceneKind, transition::Transition)> = None;
     let mut before = Canvas::new(0, 0);
     // Cambio de canción: el último cuadro de la anterior se disuelve en la nueva.
-    let mut song_fade: Option<(Canvas, f32)> = None;
+    let mut song_fade: Option<(Canvas, transition::Transition)> = None;
+    // Estilo de transición de la canción que suena: también lo usa el cambio de escena.
+    let mut track_style = transition::Style::Fade;
     let mut tracks_seen = 0u32;
     let mut drop_moment = moment::DropMoment::default();
     let mut portrait = Canvas::new(0, 0);
@@ -538,7 +557,7 @@ fn run(
                         if let SceneChoice::Fixed(kind) = choice
                             && kind != active
                         {
-                            scene_fade = Some((active, 0.0, 0.6));
+                            scene_fade = Some((active, transition::Transition::quick(transition::Style::Fade, 0.6)));
                             active = kind;
                         }
                         notice = Some((format!("escena: {}", choice.name()), Instant::now()));
@@ -622,7 +641,9 @@ fn run(
             tracks_seen += 1;
             // El último cuadro de la canción anterior se funde con la nueva.
             if tracks_seen > 1 {
-                song_fade = Some((canvas.clone(), 0.0));
+                let salt = SceneKind::salt(&session.track().artist, &session.track().title);
+                track_style = args.transition.pick(tracks_seen, salt);
+                song_fade = Some((canvas.clone(), transition::Transition::new(track_style, salt as u32 ^ tracks_seen)));
             }
             stage.new_track();
             timeline.reset();
@@ -654,22 +675,20 @@ fn run(
                 // En la primera canción no hay nada que fundir: se cambia de inmediato.
                 let first = tracks_seen <= 1 && session.position().as_secs_f32() < 1.5;
                 if !first {
-                    scene_fade = Some((active, 0.0, 2.2));
+                    scene_fade = Some((active, transition::Transition::new(track_style, tracks_seen.wrapping_mul(7919))));
                 }
                 active = target;
             }
         }
-        if let Some((_, t, length)) = &mut scene_fade {
-            *t += dt / *length;
-            if *t >= 1.0 {
-                scene_fade = None;
-            }
+        if let Some((_, tr)) = &mut scene_fade
+            && !tr.advance(dt)
+        {
+            scene_fade = None;
         }
-        if let Some((_, t)) = &mut song_fade {
-            *t += dt / 2.5;
-            if *t >= 1.0 {
-                song_fade = None;
-            }
+        if let Some((_, tr)) = &mut song_fade
+            && !tr.advance(dt)
+        {
+            song_fade = None;
         }
         // El drop: se sabe cuándo viene el próximo clímax si la canción está pre-analizada.
         let position = session.position().as_secs_f32();
@@ -710,13 +729,13 @@ fn run(
         };
         stage.update(&frame, canvas.w, canvas.h);
         stage.draw(active, &mut canvas, &palette);
-        if let Some((from, t, _)) = scene_fade {
+        if let Some((from, tr)) = &scene_fade {
             before.resize(canvas.w, canvas.h);
-            stage.draw(from, &mut before, &palette);
-            canvas.crossfade(&before, plant::smoothstep(0.0, 1.0, t));
+            stage.draw(*from, &mut before, &palette);
+            tr.apply(&mut canvas, &before, &palette);
         }
-        if let Some((old, t)) = &song_fade {
-            canvas.crossfade(old, plant::smoothstep(0.0, 1.0, *t));
+        if let Some((old, tr)) = &song_fade {
+            tr.apply(&mut canvas, old, &palette);
         }
         drop_moment.apply(&mut canvas, palette.accent.mix(color::Rgb::WHITE, 0.6));
         // Sin música por un rato: la pantalla de espera.

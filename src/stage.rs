@@ -178,3 +178,38 @@ mod tests {
         }
     }
 }
+
+/// Vista previa de las transiciones: `DISKTUI_PREVIEW=/carpeta cargo test preview -- --ignored`.
+#[cfg(test)]
+mod preview {
+    use super::*;
+    use crate::analysis::Bands;
+    use crate::transition::{Style, Transition};
+
+    #[test]
+    #[ignore]
+    fn preview_transitions() {
+        let Ok(dir) = std::env::var("DISKTUI_PREVIEW") else { return };
+        let mut stage = Stage::new(5, Garden::new(5, 3, None));
+        let bands = Bands { level: 0.6, mid: 0.5, ..Bands::default() };
+        let frame = Frame { dt: 1.0 / 60.0, bands: &bands, progress: Some(0.6), song_len: 120.0, playing: true };
+        for _ in 0..600 {
+            stage.update(&frame, 120, 36);
+        }
+        let pal = Palette::default();
+        // Cada transición va de una escena a la siguiente de esta lista.
+        let scenes = [SceneKind::Aurora, SceneKind::Sakura, SceneKind::Ocean, SceneKind::Meadow, SceneKind::Lofi, SceneKind::Fireworks, SceneKind::Garden];
+        for (n, style) in Style::ALL.into_iter().enumerate() {
+            for k in 0..=24 {
+                let t = k as f32 / 24.0;
+                let (mut before, mut after) = (Canvas::new(120, 36), Canvas::new(120, 36));
+                stage.draw(scenes[n], &mut before, &pal);
+                stage.draw(scenes[n + 1], &mut after, &pal);
+                let mut tr = Transition::new(style, 11);
+                tr.t = t;
+                tr.apply(&mut after, &before, &pal);
+                after.to_image().save(format!("{dir}/{n}_{k:02}.png")).unwrap();
+            }
+        }
+    }
+}

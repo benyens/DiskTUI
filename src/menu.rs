@@ -50,6 +50,8 @@ pub struct Settings {
     pub cover: bool,
     /// Tarjeta con el título al empezar cada canción.
     pub card: bool,
+    /// Transición entre canciones.
+    pub transition: crate::transition::Choice,
 }
 
 impl Source {
@@ -76,6 +78,7 @@ impl Default for Settings {
             mood: None,
             cover: false,
             card: true,
+            transition: crate::transition::Choice::Auto,
         }
     }
 }
@@ -131,6 +134,7 @@ impl Settings {
                 "animo" => s.mood = Mood::parse(value),
                 "caratula" => s.cover = value == "si",
                 "tarjeta" => s.card = value != "no",
+                "transicion" => s.transition = crate::transition::Choice::parse(value).unwrap_or(crate::transition::Choice::Auto),
                 _ => {}
             }
         }
@@ -139,7 +143,7 @@ impl Settings {
 
     pub fn serialize(&self) -> String {
         format!(
-            "fuente={}\narchivo={}\nescena={}\nflores={}\nvelocidad={}\ncaptura={}\nanimo={}\ncaratula={}\ntarjeta={}\n",
+            "fuente={}\narchivo={}\nescena={}\nflores={}\nvelocidad={}\ncaptura={}\nanimo={}\ncaratula={}\ntarjeta={}\ntransicion={}\n",
             match self.source {
                 Source::Spotify => "spotify",
                 Source::Music => "music",
@@ -154,6 +158,7 @@ impl Settings {
             self.mood.map(|m| m.name()).unwrap_or("auto"),
             if self.cover { "si" } else { "no" },
             if self.card { "si" } else { "no" },
+            self.transition.key(),
         )
     }
 }
@@ -199,6 +204,7 @@ enum Row {
     Speed,
     Cover,
     Card,
+    Transition,
     Capture,
 }
 
@@ -220,6 +226,7 @@ fn rows(s: &Settings) -> Vec<Row> {
         rows.push(Row::Cover);
     }
     rows.push(Row::Card);
+    rows.push(Row::Transition);
     if matches!(s.source, Source::Spotify | Source::Music) {
         rows.push(Row::Capture);
     }
@@ -248,6 +255,7 @@ fn change(s: &mut Settings, row: Row, step: i32) {
         Row::Capture => s.global = !s.global,
         Row::Cover => s.cover = !s.cover,
         Row::Card => s.card = !s.card,
+        Row::Transition => s.transition = s.transition.step(step),
         Row::Mood => {
             // Automático primero, luego los cinco climas.
             let i = s.mood.and_then(|m| Mood::ALL.iter().position(|x| *x == m)).map_or(0, |i| i + 1);
@@ -269,6 +277,7 @@ fn value_text(s: &Settings, row: Row) -> String {
         Row::Scene => s.scene.name().into(),
         Row::Cover => if s.cover { "visible" } else { "oculta" }.into(),
         Row::Card => if s.card { "al empezar cada canción" } else { "apagada" }.into(),
+        Row::Transition => s.transition.name().into(),
         Row::Flowers => s.flowers.to_string(),
         Row::Speed => format!("{}×", s.speed),
         Row::Capture => if s.global { "todo el sistema" } else { "solo la app" }.into(),
@@ -293,6 +302,7 @@ fn label(row: Row) -> &'static str {
         Row::Capture => "Captura",
         Row::Cover => "Carátula",
         Row::Card => "Tarjeta",
+        Row::Transition => "Transición",
         Row::Mood => "Clima",
     }
 }
@@ -562,6 +572,7 @@ mod tests {
             mood: Some(Mood::Sad),
             cover: true,
             card: false,
+            transition: crate::transition::Choice::Fixed(crate::transition::Style::Wave),
         };
         assert_eq!(Settings::parse(&s.serialize()), s);
     }
@@ -578,19 +589,19 @@ mod tests {
     fn rows_follow_the_choices() {
         let mut s = Settings::default();
         // En automática no hay fila de flores; con el jardín elegido, sí.
-        assert_eq!(rows(&s), [Row::Source, Row::Scene, Row::Mood, Row::Speed, Row::Cover, Row::Card, Row::Capture]);
+        assert_eq!(rows(&s), [Row::Source, Row::Scene, Row::Mood, Row::Speed, Row::Cover, Row::Card, Row::Transition, Row::Capture]);
         s.scene = SceneChoice::Fixed(SceneKind::Garden);
         assert_eq!(
             rows(&s),
-            [Row::Source, Row::Scene, Row::Flowers, Row::Mood, Row::Speed, Row::Cover, Row::Card, Row::Capture]
+            [Row::Source, Row::Scene, Row::Flowers, Row::Mood, Row::Speed, Row::Cover, Row::Card, Row::Transition, Row::Capture]
         );
         s.source = Source::File;
         s.scene = SceneChoice::Fixed(SceneKind::Cosmos);
-        assert_eq!(rows(&s), [Row::Source, Row::File, Row::Scene, Row::Mood, Row::Speed, Row::Cover, Row::Card]);
+        assert_eq!(rows(&s), [Row::Source, Row::File, Row::Scene, Row::Mood, Row::Speed, Row::Cover, Row::Card, Row::Transition]);
         // El océano tiene clima pero no flores; el demo no tiene carátula.
         s.source = Source::Demo;
         s.scene = SceneChoice::Fixed(SceneKind::Ocean);
-        assert_eq!(rows(&s), [Row::Source, Row::Scene, Row::Mood, Row::Speed, Row::Card]);
+        assert_eq!(rows(&s), [Row::Source, Row::Scene, Row::Mood, Row::Speed, Row::Card, Row::Transition]);
     }
 
     #[test]

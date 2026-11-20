@@ -283,13 +283,20 @@ impl Meadow {
         }
     }
 
-    /// Una mariposa en (`px`, `py`), en píxeles del lienzo.
     fn draw_butterfly(canvas: &mut Canvas, bf: &Butterfly, px: f32, py: f32, color: Rgb, night: f32) {
-        let s = 0.9 + 2.4 * bf.depth;
+        draw_butterfly(canvas, px, py, bf.depth, bf.flap, color, night);
+    }
+}
+
+/// Una mariposa en (`px`, `py`), en píxeles del lienzo. `depth` va de 0 (lejos, chica y
+/// tenue) a 1 (cerca); `flap` es la fase del aleteo. También la usan las transiciones.
+pub fn draw_butterfly(canvas: &mut Canvas, px: f32, py: f32, depth: f32, flap: f32, color: Rgb, night: f32) {
+    {
+        let s = 0.9 + 2.4 * depth;
         // Apertura de las alas: de cerradas (perfil) a extendidas.
-        let open = 0.15 + 0.85 * bf.flap.sin().abs();
+        let open = 0.15 + 0.85 * flap.sin().abs();
         let body = Rgb(0.08, 0.06, 0.05);
-        let alpha = 0.55 + 0.45 * bf.depth;
+        let alpha = 0.55 + 0.45 * depth;
         let (rx, ry) = ((2.0 * s + 1.0).ceil() as i32, (s + 1.0).ceil() as i32);
         for dy in -ry..=ry {
             for dx in -rx..=rx {

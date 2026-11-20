@@ -37,6 +37,7 @@ carátula.
   Marca tus favoritas con `f` y filtra el herbario por ellas.
 - 🖱️ **Click en la escena** y responde: un fuego artificial, una mariposa, un pez, un cometa…
 - 🎬 **Tarjeta con el título** al empezar cada canción (se apaga con `t`).
+- 🦋 **Transiciones entre canciones**: mariposas, pétalos, iris, ola o destellos.
 - 🎨 **Colores de la carátula** en todo: pétalos, velas, fuegos, medusas.
 - 🎧 **Spotify, Apple Music o archivos** (mp3, flac, wav, ogg, m4a).
 - 📸 **Para compartir**: postal PNG, GIF, y GIF vertical con título para historias.
@@ -170,6 +171,7 @@ También se puede saltar el menú desde la línea de comandos:
 | `--fps <n>` | Cuadros por segundo. Por defecto 60 |
 | `--sin-hud` | Arranca sin el HUD |
 | `--sin-tarjeta` | No muestra la tarjeta con el título al empezar cada canción |
+| `--transicion <nombre>` | Entre canciones: `auto` (una distinta cada vez), `fundido`, `mariposas`, `petalos`, `iris`, `ola` o `destellos` |
 | `--dispositivo <nombre>` | Modo Spotify: captura desde esa entrada de audio |
 | `--global` | Modo Spotify: captura todo el audio del sistema |
 
@@ -303,6 +305,25 @@ Con el mouse, un click hace que la escena responda donde lo hiciste:
 Al empezar cada canción aparece unos segundos su título y artista en grande, y se
 desvanece. `t` la apaga o enciende, `--sin-tarjeta` arranca sin ella, y en el menú queda
 guardada en la fila *Tarjeta*.
+
+### Transiciones
+
+Entre canción y canción, la escena nueva entra con una transición. En *automática* (el
+valor por defecto) cada canción trae una distinta y nunca repite la anterior:
+
+<div align="center"><img src="docs/transiciones.gif" alt="Las seis transiciones" width="80%"></div>
+
+| Transición | Cómo entra la escena nueva |
+| --- | --- |
+| mariposas | una bandada cruza en diagonal hacia arriba y la va descubriendo |
+| pétalos | cae una cortina de pétalos de arriba abajo |
+| iris | un círculo que se abre, con un anillo de luz en el borde |
+| ola | una ola barre la pantalla de izquierda a derecha |
+| destellos | se disuelve en cuadritos que brillan al cambiar |
+| fundido | se funde con la anterior, sin adornos |
+
+Se elige en el menú (fila *Transición*) o con `--transicion <nombre>`. Cuando la escena
+automática cambia de escena dentro de una canción, usa la misma transición.
 
 ### Cuando se equivoca
 
@@ -609,6 +630,7 @@ flowchart LR
 | `src/aurora.rs` | Escena aurora boreal: cortinas de luz, lago helado y cabaña |
 | `src/meadow.rs` | Escena mariposas: pradera y migración en diagonal |
 | `src/favorites.rs` | Canciones favoritas |
+| `src/transition.rs` | Transiciones entre canciones |
 | `src/moment.rs` | El momento del drop |
 | `src/idle.rs` | Pantalla de espera |
 | `src/poster.rs` | Póster del herbario y resumen de la semana |

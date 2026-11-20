@@ -54,6 +54,13 @@ pub fn stamp() -> String {
     chrono::Local::now().format("%Y%m%d-%H%M%S").to_string()
 }
 
+/// Hora local como número de 0 a 24 (14:30 = 14.5), para el cielo según el reloj.
+pub fn hour_now() -> f32 {
+    use chrono::Timelike;
+    let now = chrono::Local::now();
+    now.hour() as f32 + now.minute() as f32 / 60.0
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

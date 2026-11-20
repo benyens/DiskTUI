@@ -90,6 +90,9 @@ pub struct Scenery {
     atm: Atmosphere,
     /// Ánimo fijado a mano; `None` = el de la canción.
     forced: Option<Mood>,
+    /// Hora del reloj (0–24): si está, el cielo sigue la hora real y el ánimo solo pone
+    /// el clima (nubes, lluvia, viento).
+    pub clock: Option<f32>,
     /// Energía de la sección que suena: mueve el clima dentro de la canción.
     energy: SectionEnergy,
     /// Ánimo del momento, ya movido por la sección.
@@ -125,6 +128,7 @@ impl Scenery {
             fading: None,
             atm: Atmosphere::default(),
             forced: None,
+            clock: None,
             energy: SectionEnergy::default(),
             moment: Mood::Nostalgic,
             bare: false,
@@ -250,7 +254,10 @@ impl Scenery {
         let trust = if self.forced.is_some() { 1.0 } else { bands.song.settled };
         let song_mood = self.forced.unwrap_or(Mood::nearest(v, a));
         // Cerca del medio no cambia nada; en los extremos, la sección manda.
-        let (target, moment) = mood::section_weather(&base, song_mood, v, energy, trust);
+        let (mut target, moment) = mood::section_weather(&base, song_mood, v, energy, trust);
+        if let Some(hour) = self.clock {
+            mood::apply_clock(&mut target, hour);
+        }
         self.moment = moment;
         self.atm.approach(&target, 1.0 - (-dt / 3.5).exp());
         self.gust = (self.gust * (-dt / 2.0).exp()).max(if bands.section { 1.0 } else { 0.0 });

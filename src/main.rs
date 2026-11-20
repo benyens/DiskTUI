@@ -98,6 +98,8 @@ OPCIONES
   --caratula                Muestra la carátula del disco en una esquina
   --mini                    Para un panel chico (tmux): HUD de una línea, una flor, 30 FPS
   --sin-tarjeta             No muestra el título grande al empezar cada canción
+  --hora-real               El cielo sigue la hora de tu reloj: de noche, noche
+  --hora <HH:MM>            Fija la hora del cielo (para probar cómo se ve)
   --transicion <nombre>     Entre canciones: auto (una distinta cada vez), fundido,
                             mariposas, petalos, iris, ola o destellos
   --sin-hud                 Oculta el HUD (título, barra de reproducción)
@@ -148,6 +150,9 @@ struct Args {
     card: bool,
     /// Transición entre canciones, si se pidió una.
     transition: Option<transition::Choice>,
+    /// El cielo sigue el reloj; con `--hora`, una hora fija.
+    clock: bool,
+    hour: Option<f32>,
     /// Modo mini, para un panel chico: HUD de una línea, una flor, 30 FPS.
     mini: bool,
     device: Option<String>,
@@ -173,6 +178,8 @@ fn parse_args() -> Result<Args> {
         cover: false,
         card: true,
         transition: None,
+        clock: false,
+        hour: None,
         mini: false,
         device: None,
         global: false,
@@ -203,6 +210,14 @@ fn parse_args() -> Result<Args> {
             "--mini" => args.mini = true,
             "--caratula" | "--carátula" => args.cover = true,
             "--sin-tarjeta" => args.card = false,
+            "--hora-real" => args.clock = true,
+            "--hora" => {
+                let text = value("--hora")?;
+                let (h, m) = text.split_once(':').unwrap_or((&text, "0"));
+                let (h, m): (f32, f32) = (h.trim().parse()?, m.trim().parse()?);
+                args.hour = Some((h + m / 60.0).rem_euclid(24.0));
+                args.clock = true;
+            }
             "--transicion" | "--transición" => {
                 let name = value("--transicion")?;
                 args.transition = Some(transition::Choice::parse(&name).ok_or_else(|| {
@@ -273,6 +288,8 @@ struct RunOptions {
     cover: bool,
     card: bool,
     transition: transition::Choice,
+    /// El cielo sigue la hora: `Some(None)` la del reloj, `Some(Some(h))` una fija.
+    clock: Option<Option<f32>>,
     mini: bool,
     /// Al terminar la canción se vuelve al menú en vez de salir.
     from_menu: bool,
@@ -311,6 +328,7 @@ fn start() -> Result<()> {
     if let Some(transition) = args.transition {
         settings.transition = transition;
     }
+    settings.clock |= args.clock;
     if let Some(flowers) = args.flowers {
         settings.flowers = flowers;
     }
@@ -434,6 +452,7 @@ fn launch(
             cover: settings.cover,
             card: settings.card,
             transition: settings.transition,
+            clock: settings.clock.then_some(args.hour),
             mini: args.mini,
             from_menu,
         };
@@ -727,6 +746,7 @@ fn run(
             song_len: song_len / args.speed,
             playing: session.playing(),
         };
+        stage.set_clock(args.clock.map(|fixed| fixed.unwrap_or_else(paths::hour_now)));
         stage.update(&frame, canvas.w, canvas.h);
         stage.draw(active, &mut canvas, &palette);
         if let Some((from, tr)) = &scene_fade {
@@ -869,6 +889,9 @@ fn dump_frame(secs: f32, w: u16, h: u16, args: &Args) -> String {
     let speed = args.speed.unwrap_or(1.0);
     let mut stage = Stage::new(args.seed.unwrap_or(0xD3E0), Garden::new(0xD3E0, args.flowers.unwrap_or(3), args.petals));
     stage.force_mood(args.mood);
+    if args.clock {
+        stage.set_clock(Some(args.hour.unwrap_or_else(paths::hour_now)));
+    }
     let palette = Palette::default();
     let hud_rows = ui::rows(args.hud, h);
     let mut canvas = Canvas::new(w as usize, (h - hud_rows) as usize);

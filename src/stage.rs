@@ -17,6 +17,7 @@ use crate::palette::Palette;
 use crate::reef::Reef;
 use crate::meadow::Meadow;
 use crate::sakura::Sakura;
+use crate::scenery::Scenery;
 use crate::scene::{Frame, Scene, SceneKind};
 use crate::train::Train;
 
@@ -57,24 +58,44 @@ impl Stage {
 
     /// Cambia el jardín (otra cantidad de flores) conservando el ánimo fijado.
     pub fn set_garden(&mut self, garden: Garden) {
+        let clock = self.garden.scenery.clock;
         self.garden = garden;
         self.garden.scenery.force_mood(self.mood);
+        self.garden.scenery.clock = clock;
     }
 
     /// Fija el ánimo de todas las escenas, o lo devuelve al de la canción con `None`.
     pub fn force_mood(&mut self, mood: Option<Mood>) {
         self.mood = mood;
-        self.garden.scenery.force_mood(mood);
         self.cosmos.force_mood(mood);
-        self.ocean.scenery.force_mood(mood);
-        self.city.scenery.force_mood(mood);
-        self.campfire.scenery.force_mood(mood);
-        self.train.scenery.force_mood(mood);
-        self.reef.scenery.force_mood(mood);
-        self.fireworks.scenery.force_mood(mood);
-        self.sakura.scenery.force_mood(mood);
-        self.lofi.scenery.force_mood(mood);
-        self.aurora.scenery.force_mood(mood);
+        for scenery in self.sceneries() {
+            scenery.force_mood(mood);
+        }
+    }
+
+    /// Hora del reloj (0–24) para que el cielo la siga, o `None` para que lo decida la
+    /// canción. El sistema solar no tiene cielo: no cambia.
+    pub fn set_clock(&mut self, hour: Option<f32>) {
+        for scenery in self.sceneries() {
+            scenery.clock = hour;
+        }
+    }
+
+    /// El cielo compartido de cada escena que lo tiene.
+    fn sceneries(&mut self) -> [&mut Scenery; 11] {
+        [
+            &mut self.garden.scenery,
+            &mut self.ocean.scenery,
+            &mut self.city.scenery,
+            &mut self.campfire.scenery,
+            &mut self.train.scenery,
+            &mut self.reef.scenery,
+            &mut self.fireworks.scenery,
+            &mut self.sakura.scenery,
+            &mut self.lofi.scenery,
+            &mut self.aurora.scenery,
+            &mut self.meadow.scenery,
+        ]
     }
 
     fn all(&mut self) -> [&mut dyn Scene; 12] {

@@ -6,6 +6,7 @@
 //! con llovizna.
 
 use crate::color::Rgb;
+use crate::plant::smoothstep;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Mood {
@@ -194,6 +195,50 @@ impl Default for Atmosphere {
     }
 }
 
+/// Luz de día según la hora: 0 de noche, 1 de día, con amanecer (5:30–7:30) y
+/// atardecer (18:00–20:30) graduales.
+pub fn daylight_at(hour: f32) -> f32 {
+    let h = hour.rem_euclid(24.0);
+    smoothstep(5.5, 7.5, h) * (1.0 - smoothstep(18.0, 20.5, h))
+}
+
+/// Cuánto hay de amanecer o atardecer a esa hora: cielo naranja y sol bajo.
+fn golden_at(hour: f32) -> f32 {
+    let h = hour.rem_euclid(24.0);
+    let dawn = smoothstep(5.0, 6.3, h) * (1.0 - smoothstep(6.8, 8.3, h));
+    let dusk = smoothstep(17.0, 18.8, h) * (1.0 - smoothstep(19.6, 21.0, h));
+    dawn.max(dusk)
+}
+
+/// Lleva el cielo a la hora real: luz, sol, luna, estrellas y colores. El clima del ánimo
+/// (nubes, lluvia, viento, tormenta) se mantiene, y con lluvia el cielo sigue gris.
+pub fn apply_clock(atm: &mut Atmosphere, hour: f32) {
+    let day = daylight_at(hour);
+    let golden = golden_at(hour);
+    let h = hour.rem_euclid(24.0);
+    let wet = atm.rain.max(atm.storm);
+    let clear = 1.0 - 0.75 * wet;
+    let night_top = Rgb(0.02, 0.03, 0.09);
+    let night_low = Rgb(0.06, 0.08, 0.18);
+    let day_top = Rgb(0.16, 0.38, 0.78);
+    let day_low = Rgb(0.58, 0.78, 0.96);
+    let gold_top = Rgb(0.22, 0.20, 0.48);
+    let gold_low = Rgb(0.98, 0.56, 0.34);
+    let top = night_top.mix(day_top, day).mix(gold_top, golden);
+    let low = night_low.mix(day_low, day).mix(gold_low, golden);
+    // Con lluvia pesa más el cielo gris del ánimo.
+    let weight = 0.85 * (1.0 - 0.6 * wet);
+    atm.sky_top = atm.sky_top.mix(top, weight);
+    atm.sky_bottom = atm.sky_bottom.mix(low, weight);
+    atm.daylight = day;
+    atm.sun = day.max(golden * 0.8) * clear;
+    atm.sun_height = ((h - 6.0) / 14.0 * std::f32::consts::PI).sin().clamp(0.0, 1.0);
+    atm.moon = (1.0 - day) * clear;
+    atm.stars = (1.0 - day) * (1.0 - 0.8 * atm.clouds);
+    atm.fireflies = (1.0 - day) * atm.fireflies.max(0.5) * clear;
+    atm.butterflies = day * atm.butterflies.max(0.4) * clear;
+}
+
 /// Cuánto mueve la energía de la sección el ánimo hacia arriba o abajo en el eje de
 /// activación: con energía 1 sube `SECTION_SWING / 2`, con 0 baja lo mismo.
 pub const SECTION_SWING: f32 = 0.8;
@@ -332,6 +377,30 @@ impl Atmosphere {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_clock_sets_day_and_night_but_keeps_the_rain() {
+        assert_eq!(daylight_at(2.0), 0.0);
+        assert_eq!(daylight_at(13.0), 1.0);
+        assert!(daylight_at(19.0) > 0.1 && daylight_at(19.0) < 0.9);
+        // Una canción alegre (de sol) a medianoche: noche con luna.
+        let mut happy = Mood::Happy.atmosphere();
+        apply_clock(&mut happy, 0.5);
+        assert!(happy.daylight < 0.01 && happy.moon > 0.5 && happy.sun < 0.01);
+        // Una nostálgica (de noche) al mediodía: de día, sin estrellas.
+        let mut night = Mood::Nostalgic.atmosphere();
+        apply_clock(&mut night, 12.0);
+        assert!(night.daylight > 0.99 && night.stars < 0.01 && night.sun > 0.5);
+        // La lluvia y el viento del ánimo no los toca.
+        let sad = Mood::Sad.atmosphere();
+        let mut clocked = sad;
+        apply_clock(&mut clocked, 12.0);
+        assert_eq!((clocked.rain, clocked.wind, clocked.clouds), (sad.rain, sad.wind, sad.clouds));
+        // Al atardecer el horizonte se pone naranja.
+        let mut dusk = Mood::Serene.atmosphere();
+        apply_clock(&mut dusk, 19.3);
+        assert!(dusk.sky_bottom.0 > dusk.sky_bottom.2, "{:?}", dusk.sky_bottom);
+    }
 
     #[test]
     fn each_mood_center_gives_its_own_weather() {

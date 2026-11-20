@@ -171,6 +171,8 @@ También se puede saltar el menú desde la línea de comandos:
 | `--fps <n>` | Cuadros por segundo. Por defecto 60 |
 | `--sin-hud` | Arranca sin el HUD |
 | `--sin-tarjeta` | No muestra la tarjeta con el título al empezar cada canción |
+| `--hora-real` | El cielo sigue la hora de tu reloj |
+| `--hora <HH:MM>` | Fija la hora del cielo, para probar |
 | `--transicion <nombre>` | Entre canciones: `auto` (una distinta cada vez), `fundido`, `mariposas`, `petalos`, `iris`, `ola` o `destellos` |
 | `--dispositivo <nombre>` | Modo Spotify: captura desde esa entrada de audio |
 | `--global` | Modo Spotify: captura todo el audio del sistema |
@@ -305,6 +307,15 @@ Con el mouse, un click hace que la escena responda donde lo hiciste:
 Al empezar cada canción aparece unos segundos su título y artista en grande, y se
 desvanece. `t` la apaga o enciende, `--sin-tarjeta` arranca sin ella, y en el menú queda
 guardada en la fila *Tarjeta*.
+
+### Cielo según tu reloj
+
+Con *Cielo: la hora de tu reloj* en el menú (o `--hora-real`), el cielo sigue la hora
+real: de noche hay luna y estrellas aunque la canción sea alegre, y al atardecer el cielo
+se pone naranja. El ánimo sigue decidiendo el clima: nubes, lluvia, viento y tormenta.
+Los fuegos artificiales, la aurora y el cuarto lofi son siempre de noche.
+
+`--hora 19:30` fija una hora para ver cómo queda.
 
 ### Transiciones
 

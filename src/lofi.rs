@@ -259,7 +259,7 @@ impl Lofi {
         canvas.solid(mx as i32 + 3, my - 1, mug);
         let steam = 1.0 - smoothstep(0.6, 1.0, self.progress);
         for k in 0..6 {
-            let t = ((self.time * 0.4 + k as f32 / 6.0).fract()) as f32;
+            let t = (self.time * 0.4 + k as f32 / 6.0).fract();
             let x = mx + 1.0 + (t * 6.0 + k as f32).sin() * 1.2;
             let y = my as f32 - 3.0 - t * h * 0.12;
             canvas.dot_over((x * 2.0) as i32, (y * 2.0) as i32, Rgb(0.9, 0.9, 0.9), 0.35 * steam * (1.0 - t));
@@ -300,7 +300,7 @@ impl Lofi {
         let ear = (1.0 + 1.5 * self.hat_pulse) * s;
         for side in [-1, 1] {
             for k in 0..=ear as i32 {
-                let x = hx + side * (hr - 1) + if k > 0 { side } else { 0 } * 0;
+                let x = hx + side * (hr - 1);
                 canvas.solid(x, hy - hr - k, fur);
             }
         }

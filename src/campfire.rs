@@ -359,6 +359,13 @@ impl Scene for Campfire {
         self.scenery.draw_front(canvas, &view, pal);
     }
 
+    /// Un click aviva el fuego: una nube de chispas.
+    fn poke(&mut self, _x: f32, _y: f32) {
+        let fuel = self.fuel().max(0.4);
+        self.spawn_sparks(35, fuel);
+        self.kick_pulse = 1.0;
+    }
+
     fn new_track(&mut self) {
         if self.dying.is_none() {
             self.dying = Some(0.0);

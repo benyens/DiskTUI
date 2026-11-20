@@ -129,6 +129,8 @@ pub struct Hud<'a> {
     pub scene: SceneKind,
     /// La escena la eligió la canción (modo automático).
     pub auto_scene: bool,
+    /// La canción que suena está marcada como favorita: la nota se vuelve estrella.
+    pub favorite: bool,
     /// Aviso pasajero (postal guardada, flor al herbario): reemplaza el texto de la derecha.
     pub notice: Option<&'a str>,
 }
@@ -149,7 +151,7 @@ pub fn draw(buf: &mut Buffer, area: Rect, hud: &Hud) {
         draw_full(buf, area, hud);
     } else if area.height >= 1 {
         let line = Rect { y: area.bottom() - 1, height: 1, ..area };
-        draw_compact(buf, line, hud.session, hud.pal, hud.mode);
+        draw_compact(buf, line, hud.session, hud.pal, hud.mode, hud.favorite);
     }
 }
 
@@ -373,7 +375,8 @@ fn draw_full(buf: &mut Buffer, area: Rect, hud: &Hud) {
     let room = width.saturating_sub(right_w + 6);
     let title = fit(&track.title, room);
     let title_w = Span::raw(title.as_str()).width();
-    put(buf, area, mode, 1, 0, "♪", pal.petal.mix(Rgb::WHITE, 0.2));
+    let (mark, mark_color) = note_mark(hud.favorite, pal);
+    put(buf, area, mode, 1, 0, mark, mark_color);
     let end = put(buf, area, mode, 3, 0, &title, bright);
     if !track.artist.is_empty() && room > title_w + 6 {
         put(buf, area, mode, end, 0, &format!(" — {}", fit(&track.artist, room - title_w - 3)), dim);
@@ -440,7 +443,12 @@ fn draw_full(buf: &mut Buffer, area: Rect, hud: &Hud) {
 }
 
 /// HUD de una línea, para terminales bajas.
-fn draw_compact(buf: &mut Buffer, area: Rect, session: &dyn Session, pal: &Palette, mode: ColorMode) {
+/// La nota antes del título: una estrella si la canción es favorita.
+fn note_mark(favorite: bool, pal: &Palette) -> (&'static str, Rgb) {
+    if favorite { ("★", pal.accent.mix(Rgb::WHITE, 0.35)) } else { ("♪", pal.petal.mix(Rgb::WHITE, 0.2)) }
+}
+
+fn draw_compact(buf: &mut Buffer, area: Rect, session: &dyn Session, pal: &Palette, mode: ColorMode, favorite: bool) {
     if area.height == 0 || area.width < 8 {
         return;
     }
@@ -497,7 +505,8 @@ fn draw_compact(buf: &mut Buffer, area: Rect, session: &dyn Session, pal: &Palet
             col += Span::raw(ch.to_string()).width().max(1);
         }
     };
-    put(1, "♪", pal.petal.mix(Rgb::WHITE, 0.2));
+    let (mark, mark_color) = note_mark(favorite, pal);
+    put(1, mark, mark_color);
     put(3, &title, bright);
     put(3 + title_w, &artist, dim);
     put(width.saturating_sub(right_w + 1), &right, dim);
@@ -557,7 +566,7 @@ mod tests {
         for width in [8u16, 39, 40, 41, 60, 200] {
             let area = Rect::new(0, 0, width, 3);
             let mut buf = Buffer::empty(area);
-            let hud = Hud { session: &session, pal: &pal, mode: ColorMode::True, timeline: &timeline, bands: &bands, scene: SceneKind::Garden, auto_scene: false, notice: None };
+            let hud = Hud { session: &session, pal: &pal, mode: ColorMode::True, timeline: &timeline, bands: &bands, scene: SceneKind::Garden, auto_scene: false, favorite: false, notice: None };
             draw(&mut buf, area, &hud);
         }
     }
@@ -603,7 +612,7 @@ mod tests {
         for rows in [3u16, 1] {
             let area = Rect::new(0, 0, 160, rows);
             let mut buf = Buffer::empty(area);
-            let hud = Hud { session: &session, pal: &pal, mode: ColorMode::True, timeline: &timeline, bands: &bands, scene: SceneKind::Garden, auto_scene: false, notice: None };
+            let hud = Hud { session: &session, pal: &pal, mode: ColorMode::True, timeline: &timeline, bands: &bands, scene: SceneKind::Garden, auto_scene: false, favorite: false, notice: None };
             draw(&mut buf, area, &hud);
             let text = text_of(&buf);
             assert!(text.contains("sin señal"), "{rows} filas: {text}");

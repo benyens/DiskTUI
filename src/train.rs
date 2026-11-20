@@ -346,6 +346,12 @@ impl Scene for Train {
         self.draw_window(canvas, pal);
     }
 
+    /// Un click hace pasar un pueblo iluminado.
+    fn poke(&mut self, _x: f32, _y: f32) {
+        self.town = TOWN_TIME;
+        self.town_seed = (self.rng.next() * 1e6) as u32;
+    }
+
     fn new_track(&mut self) {
         if self.fog.is_none() {
             self.fog = Some(0.0);

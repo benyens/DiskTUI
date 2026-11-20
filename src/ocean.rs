@@ -414,6 +414,13 @@ impl Scene for Ocean {
         self.scenery.draw_front(canvas, &view, pal);
     }
 
+    /// Un click hace saltar un pez donde se hizo.
+    fn poke(&mut self, x: f32, y: f32) {
+        let depth = ((y - HORIZON) / (1.0 - HORIZON)).clamp(0.2, 0.9);
+        let dir = if self.rng.next() < 0.5 { -1.0 } else { 1.0 };
+        self.jumps.push(Jump { x: x.clamp(0.05, 0.95), depth, dir, age: 0.0, size: self.rng.range(0.9, 1.3) });
+    }
+
     fn new_track(&mut self) {
         if self.fading.is_none() {
             self.fading = Some(0.0);

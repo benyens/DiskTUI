@@ -93,6 +93,8 @@ pub struct Garden {
     pub scenery: Scenery,
     /// Los pétalos los fijó `--petalos`: la canción no los cambia.
     fixed_petals: bool,
+    /// Tamaño del lienzo en la última actualización, para ubicar los clicks.
+    size: (usize, usize),
 }
 
 impl Garden {
@@ -114,7 +116,7 @@ impl Garden {
             plant.ambient = false;
             members.push(Member { plant, x, scale, delay, voice });
         }
-        Garden { members, scenery: Scenery::new(seed), fixed_petals: petals.is_some() }
+        Garden { members, scenery: Scenery::new(seed), fixed_petals: petals.is_some(), size: (0, 0) }
     }
 
     pub fn main(&self) -> &Plant {
@@ -186,6 +188,7 @@ impl Garden {
 
 impl Scene for Garden {
     fn update(&mut self, f: &Frame, w: usize, h: usize) {
+        self.size = (w, h);
         let half_width = View::for_size(w, h, self.half_span()).half_width();
         Garden::update(self, f.dt, f.bands, f.progress, f.song_len, f.playing, half_width);
     }
@@ -196,6 +199,16 @@ impl Scene for Garden {
 
     fn new_track(&mut self) {
         self.wither();
+    }
+
+    fn poke(&mut self, x: f32, y: f32) {
+        let (w, h) = self.size;
+        if w == 0 || h == 0 {
+            return;
+        }
+        let view = View::for_size(w, h, self.half_span());
+        let (px, py) = (x * w as f32, y * h as f32 * 2.0);
+        self.scenery.poke((px - view.cx) / view.scale, (view.ground - py) / view.scale);
     }
 }
 

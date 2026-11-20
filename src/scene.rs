@@ -44,7 +44,7 @@ pub enum SceneKind {
 
 impl SceneKind {
     #[cfg(test)]
-    const ALL: [SceneKind; 11] = [
+    pub const ALL: [SceneKind; 11] = [
         SceneKind::Garden,
         SceneKind::Cosmos,
         SceneKind::Ocean,

@@ -87,6 +87,8 @@ struct Wave {
 }
 
 pub struct Cosmos {
+    /// Tamaño del lienzo en la última actualización, para ubicar los clicks.
+    size: (usize, usize),
     time: f32,
     rng: Rng,
     /// Avance de la canción, 0..1.
@@ -120,6 +122,7 @@ pub struct Cosmos {
 impl Cosmos {
     pub fn new(seed: u64) -> Self {
         let mut cosmos = Cosmos {
+            size: (0, 0),
             time: 0.0,
             rng: Rng::new(seed),
             age: 0.0,
@@ -366,13 +369,18 @@ impl Cosmos {
     }
 
     fn spawn_comet(&mut self) {
+        let (tx, ty) = (self.rng.range(-0.6, 0.6), self.rng.range(-0.3, 0.3));
+        self.spawn_comet_toward(tx, ty);
+    }
+
+    /// Cometa que entra desde el borde y pasa por (`tx`, `ty`), en coordenadas de la escena.
+    fn spawn_comet_toward(&mut self, tx: f32, ty: f32) {
         if self.comets.len() >= 16 {
             return;
         }
         // Entra desde el borde y cruza cerca del centro, sin apuntar justo al sol.
         let from = self.rng.range(0.0, TAU);
         let (x, y) = (from.cos() * 1.5, from.sin() * 0.75);
-        let (tx, ty) = (self.rng.range(-0.6, 0.6), self.rng.range(-0.3, 0.3));
         let d = ((tx - x).powi(2) + (ty - y).powi(2)).sqrt().max(0.01);
         let v = self.rng.range(1.3, 2.3);
         self.comets.push(Comet {
@@ -387,8 +395,20 @@ impl Cosmos {
 }
 
 impl Scene for Cosmos {
-    fn update(&mut self, frame: &Frame, _w: usize, _h: usize) {
+    fn update(&mut self, frame: &Frame, w: usize, h: usize) {
+        self.size = (w, h);
         self.advance(frame);
+    }
+
+    /// Un click lanza un cometa que pasa por ese punto.
+    fn poke(&mut self, x: f32, y: f32) {
+        let (w, h) = self.size;
+        if w == 0 || h == 0 {
+            return;
+        }
+        let (wf, ph) = (w as f32, (h * 2) as f32);
+        let scale = (wf / 2.0 / 1.14).min(ph / 2.0 / (TILT + 0.14)).max(4.0);
+        self.spawn_comet_toward((x * wf - wf / 2.0) / scale, (ph / 2.0 - y * ph) / scale);
     }
 
     fn new_track(&mut self) {

@@ -472,6 +472,16 @@ impl Scene for Fireworks {
         self.scenery.draw_weather(canvas, &view);
     }
 
+    /// Un click lanza un cohete que estalla donde se hizo.
+    fn poke(&mut self, x: f32, y: f32) {
+        if self.shells.len() < 12 {
+            let kind = self.random_kind();
+            let apex = y.clamp(0.08, HORIZON - 0.12);
+            let color = (self.rng.next() * 4.0) as u8 % 4;
+            self.shells.push(Shell { x: x.clamp(0.05, 0.95), y: HORIZON - 0.02, vy: -0.65, apex, kind, size: 1.0, color });
+        }
+    }
+
     fn new_track(&mut self) {
         if self.clearing.is_none() {
             self.clearing = Some(0.0);

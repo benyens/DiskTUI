@@ -16,9 +16,9 @@ carátula.
 ![100% local](https://img.shields.io/badge/audio-100%25%20local-green)
 ![Vibecoded](https://img.shields.io/badge/vibecoded-con%20Claude-8A2BE2)
 
-<img src="docs/escenas.gif" alt="Las ocho escenas de DiskTUI, una tras otra" width="90%">
+<img src="docs/escenas.gif" alt="Las once escenas de DiskTUI, una tras otra" width="90%">
 
-<sub>Las ocho escenas, generadas desde la salida real del programa (`--demo`).</sub>
+<sub>Las once escenas, generadas desde la salida real del programa (`--demo`).</sub>
 
 **[Instalar](#instalación) · [Usar](#uso) · [Escenas](#escenas) · [Cómo entiende la canción](#cómo-entiende-la-canción) · [Vibecoded](#hecho-con-vibe-coding)**
 
@@ -34,6 +34,9 @@ carátula.
 - 🥁 **Sigue el pulso**: estima el tempo y predice cada golpe; la escena se mece al compás.
 - 💥 **Siente los clímax**: sabe cuándo entra el coro o cae el drop, y la escena estalla.
 - 🌼 **Una flor única por canción**, guardada en tu **herbario**, con póster para compartir.
+  Marca tus favoritas con `f` y filtra el herbario por ellas.
+- 🖱️ **Click en la escena** y responde: un fuego artificial, una mariposa, un pez, un cometa…
+- 🎬 **Tarjeta con el título** al empezar cada canción (se apaga con `t`).
 - 🎨 **Colores de la carátula** en todo: pétalos, velas, fuegos, medusas.
 - 🎧 **Spotify, Apple Music o archivos** (mp3, flac, wav, ogg, m4a).
 - 📸 **Para compartir**: postal PNG, GIF, y GIF vertical con título para historias.
@@ -52,6 +55,10 @@ carátula.
 | 🪼 **Fondo del mar** · medusas que laten con el bombo | 🔥 **Fogata** · arde al ritmo y queda en brasas al final |
 | <img src="docs/sistema.png" alt="Sistema solar"> | <img src="docs/ciudad.png" alt="Ciudad"> |
 | 🪐 **Sistema solar** · estrellas, un sol y planetas al azar | 🌆 **Ciudad** · edificios que suben y ventanas que siguen la música |
+| <img src="docs/cerezos.png" alt="Cerezos"> | <img src="docs/lofi.png" alt="Cuarto lofi"> |
+| 🌸 **Cerezos** · un sakura florece y suelta pétalos con cada golpe | 🐈 **Cuarto lofi** · lluvia en la ventana, un gato que mueve la cola al compás |
+| <img src="docs/aurora.png" alt="Aurora boreal"> | |
+| 🌌 **Aurora boreal** · cortinas de luz sobre un lago helado | |
 
 Con la escena en *automática* (el valor por defecto), cada canción elige la suya según su
 ánimo. La tecla `e` las recorre a mano.
@@ -153,7 +160,7 @@ También se puede saltar el menú desde la línea de comandos:
 
 | Opción | Efecto |
 | --- | --- |
-| `--escena <nombre>` | `auto` (por defecto: la elige el ánimo), `jardin`, `sistema`, `oceano`, `ciudad`, `fogata`, `tren`, `fondo` o `fuegos` |
+| `--escena <nombre>` | `auto` (por defecto: la elige el ánimo), `jardin`, `sistema`, `oceano`, `ciudad`, `fogata`, `tren`, `fondo`, `fuegos`, `cerezos`, `lofi` o `aurora` |
 | `--flores <n>` | Flores del jardín, de 1 a 3. Por defecto 3 |
 | `--petalos <n>` | Pétalos de la flor principal, de 3 a 12 |
 | `--velocidad <x>` | Qué tan rápido crece la escena. `2` = el doble. Por defecto 1 |
@@ -162,16 +169,20 @@ También se puede saltar el menú desde la línea de comandos:
 | `--animo <nombre>` | Fija el clima: `alegre`, `serena`, `nostalgica`, `triste`, `intensa`. Por defecto lo decide la canción |
 | `--fps <n>` | Cuadros por segundo. Por defecto 60 |
 | `--sin-hud` | Arranca sin el HUD |
+| `--sin-tarjeta` | No muestra la tarjeta con el título al empezar cada canción |
 | `--dispositivo <nombre>` | Modo Spotify: captura desde esa entrada de audio |
 | `--global` | Modo Spotify: captura todo el audio del sistema |
 
 | Tecla | Acción |
 | --- | --- |
-| `e` | Cambiar de escena: automática, jardín, sistema solar, océano, ciudad, fogata, tren, fondo del mar, fuegos artificiales |
+| `e` | Cambiar de escena: automática, jardín, sistema solar, océano, ciudad, fogata, tren, fondo del mar, fuegos artificiales, cerezos, cuarto lofi, aurora boreal |
 | `←` / `→` | Retroceder / adelantar 10 segundos (archivo, Spotify, Apple Music) |
 | `g` | Grabar un GIF de 8 segundos en `~/Pictures/DiskTUI` (`g` otra vez lo corta antes) |
 | `v` | Grabar un GIF vertical (9:16) con carátula y título, para historias |
 | `c` | Mostrar u ocultar la carátula |
+| `t` | Encender o apagar la tarjeta con el título de cada canción |
+| `f` | Marcar o desmarcar la canción como favorita |
+| click | La escena responde donde hiciste click |
 | `d` | Panel de detalles: qué entendió de la canción, la fuente de audio y los avisos completos. Con el panel abierto, `1`–`5` corrigen el ánimo y `0` lo devuelve a automático |
 | `n` / `p` | Canción siguiente / anterior (Spotify y Apple Music) |
 | `s` | Guardar una postal PNG en `~/Pictures/DiskTUI` |
@@ -260,15 +271,37 @@ varias escenas, cada canción se queda siempre con la misma:
 
 | Ánimo | Escena |
 | --- | --- |
-| alegre | 🌸 jardín al sol o 🎆 fuegos artificiales |
-| serena | 🔥 fogata al atardecer o 🪼 fondo del mar |
-| nostálgica | 🪐 sistema solar, 🚆 tren nocturno o 🎆 fuegos artificiales |
-| triste | ⛵ océano con lluvia o 🚆 tren bajo la lluvia |
+| alegre | 🌼 jardín al sol, 🎆 fuegos artificiales o 🌸 cerezos |
+| serena | 🔥 fogata al atardecer, 🪼 fondo del mar, 🌸 cerezos o 🌌 aurora boreal |
+| nostálgica | 🪐 sistema solar, 🚆 tren nocturno, 🎆 fuegos artificiales, 🐈 cuarto lofi o 🌌 aurora boreal |
+| triste | ⛵ océano con lluvia, 🚆 tren bajo la lluvia o 🐈 cuarto lofi |
 | intensa | 🌆 ciudad con tormenta |
 
 La elección se hace una vez por canción, cuando el análisis ya es fiable: de inmediato en
 modo archivo, a los ~20 segundos en Spotify. Las escenas se funden una en otra. La tecla
-`e` recorre automática y las ocho escenas.
+`e` recorre automática y las once escenas.
+
+### Click en la escena
+
+Con el mouse, un click hace que la escena responda donde lo hiciste:
+
+| Escena | Click |
+| --- | --- |
+| jardín | de día llega una mariposa; de noche, una luciérnaga que destella |
+| fuegos artificiales, ciudad | un fuego artificial estalla ahí |
+| cerezos | una nube de pétalos |
+| océano | salta un pez |
+| sistema solar, aurora boreal | un cometa o una estrella fugaz |
+| fondo del mar | burbujas |
+| fogata | la avivas: una lluvia de chispas |
+| tren nocturno | pasa un pueblo iluminado |
+| cuarto lofi | una nota musical flota |
+
+### Tarjeta de la canción
+
+Al empezar cada canción aparece unos segundos su título y artista en grande, y se
+desvanece. `t` la apaga o enciende, `--sin-tarjeta` arranca sin ella, y en el menú queda
+guardada en la fila *Tarjeta*.
 
 ### Cuando se equivoca
 
@@ -293,6 +326,10 @@ Cuando escuchas al menos el 60% de una canción, su flor queda guardada. `disktu
 <div align="center"><img src="docs/herbario.png" alt="Herbario" width="80%"></div>
 
 Arriba, un resumen de la semana: cuántas flores, el ánimo más escuchado y el BPM promedio.
+
+**Favoritas.** Mientras suena una canción, `f` la marca como favorita (la nota del HUD se
+vuelve ★) y otra vez la desmarca. En el herbario las favoritas llevan ★ y la tecla `f`
+muestra solo esas. Quedan en `favoritas.tsv`, junto al herbario.
 La tecla `p` guarda un **póster** PNG con todas las flores, su título, artista y fecha:
 
 <div align="center"><img src="docs/poster.png" alt="Póster del herbario" width="60%"></div>

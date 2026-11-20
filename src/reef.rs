@@ -339,6 +339,18 @@ impl Scene for Reef {
         self.draw_school(canvas, pal);
     }
 
+    /// Un click suelta burbujas desde ahí.
+    fn poke(&mut self, x: f32, y: f32) {
+        for _ in 0..20.min(MAX_BUBBLES.saturating_sub(self.bubbles.len())) {
+            self.bubbles.push(Bubble {
+                x: x + self.rng.range(-0.02, 0.02),
+                y: y + self.rng.range(-0.02, 0.02),
+                speed: self.rng.range(0.10, 0.25),
+                wobble: self.rng.range(0.0, TAU),
+            });
+        }
+    }
+
     fn new_track(&mut self) {
         if self.sinking.is_none() {
             self.sinking = Some(0.0);

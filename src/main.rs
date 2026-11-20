@@ -12,6 +12,7 @@ mod color;
 mod cosmos;
 mod demo;
 mod diagnose;
+mod favorites;
 mod features;
 mod fireworks;
 mod garden;
@@ -52,7 +53,7 @@ use std::time::{Duration, Instant};
 use anyhow::{Result, bail};
 use crossterm::event::{
     self, DisableBracketedPaste, DisableMouseCapture, EnableBracketedPaste, EnableMouseCapture, Event, KeyCode,
-    KeyEventKind, KeyModifiers,
+    KeyEventKind, KeyModifiers, MouseButton, MouseEventKind,
 };
 use ratatui::DefaultTerminal;
 use ratatui::buffer::Buffer;
@@ -110,9 +111,11 @@ TECLAS
              los avisos completos y cómo corregir el ánimo
   c          mostrar u ocultar la carátula
   t          encender o apagar la tarjeta con el título de cada canción
+  click      cada escena responde: un fuego artificial, una mariposa, un pez, un cometa…
   ← / →      retroceder / adelantar 10 segundos (archivo, Spotify, Apple Music)
   n / p      canción siguiente / anterior (Spotify y Apple Music)
   s          guardar una postal PNG en ~/Pictures/DiskTUI
+  f          marcar o desmarcar la canción como favorita (★ en el herbario)
   m          volver al menú
 ";
 
@@ -465,6 +468,7 @@ fn run(
     let mut recording: Option<postcard::Recording> = None;
     let mut gif_job: Option<std::sync::mpsc::Receiver<Result<std::path::PathBuf>>> = None;
     let mut corrections = tuning::Corrections::load();
+    let mut favorites = favorites::Favorites::load();
     let mut applied_mood = args.mood;
     let mut palette = Palette::default();
     let mut target_palette = palette;
@@ -484,7 +488,17 @@ fn run(
     loop {
         // Teclado: se atiende sin bloquear.
         while event::poll(Duration::ZERO)? {
-            if let Event::Key(key) = event::read()? {
+            let event = event::read()?;
+            // Un click en la escena: cada una responde a su manera.
+            if let Event::Mouse(mouse) = &event {
+                if mouse.kind == MouseEventKind::Down(MouseButton::Left) && (mouse.row as usize) < canvas.h && canvas.w > 0 {
+                    let x = (mouse.column as f32 + 0.5) / canvas.w as f32;
+                    let y = (mouse.row as f32 + 0.5) / canvas.h as f32;
+                    stage.poke(active, x, y);
+                }
+                continue;
+            }
+            if let Event::Key(key) = event {
                 // En Windows llegan también los eventos de soltar la tecla: se ignoran, o
                 // cada tecla contaría dos veces.
                 if key.kind != KeyEventKind::Press {
@@ -559,6 +573,19 @@ fn run(
                         let text = match mood {
                             Some(m) => format!("ánimo de esta canción: {}", m.name()),
                             None => "ánimo de esta canción: automático".to_string(),
+                        };
+                        notice = Some((text, Instant::now()));
+                    }
+                    KeyCode::Char('f') => {
+                        let text = if current.title.trim().is_empty() {
+                            "esta canción no tiene título: no se puede marcar".to_string()
+                        } else {
+                            let on = favorites.toggle(&current.artist, &current.title);
+                            match (on, favorites.save()) {
+                                (_, Err(e)) => format!("no se pudo guardar la favorita: {e}"),
+                                (true, Ok(())) => "★ marcada como favorita".to_string(),
+                                (false, Ok(())) => "ya no es favorita".to_string(),
+                            }
                         };
                         notice = Some((text, Instant::now()));
                     }
@@ -749,6 +776,7 @@ fn run(
                     bands: &tick.bands,
                     scene: active,
                     auto_scene: choice == SceneChoice::Auto,
+                    favorite: favorites.contains(&session.track().artist, &session.track().title),
                     notice: notice.as_ref().filter(|(_, at)| at.elapsed() < Duration::from_secs(5)).map(|(t, _)| t.as_str()),
                 };
                 ui::draw(frame.buffer_mut(), hud_area, &hud);
@@ -860,6 +888,7 @@ fn dump_frame(secs: f32, w: u16, h: u16, args: &Args) -> String {
             bands: &bands,
             scene: kind,
             auto_scene: choice == SceneChoice::Auto,
+            favorite: false,
             notice: None,
         };
         ui::draw(&mut buf, Rect { y: h - hud_rows, height: hud_rows, ..area }, &hud);

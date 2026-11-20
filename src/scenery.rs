@@ -426,6 +426,28 @@ impl Scenery {
         ]
     }
 
+    /// Un click en (`x`, `y`), en unidades de mundo (x desde el centro, y sobre el suelo):
+    /// de día llega una mariposa, de noche aparece una luciérnaga que destella.
+    pub fn poke(&mut self, x: f32, y: f32) {
+        let y = y.clamp(0.05, 0.9);
+        if self.atm.daylight > 0.5 {
+            if self.butterflies.len() < 10 {
+                self.butterflies.push(Butterfly {
+                    x,
+                    y,
+                    vx: 0.0,
+                    vy: 0.0,
+                    target: (x + self.rng.range(-0.2, 0.2), (y + 0.1).min(0.8)),
+                    timer: 2.0,
+                    flap: self.rng.range(0.0, TAU),
+                    role: (self.rng.next() * 2.0) as u8,
+                });
+            }
+        } else if self.fireflies.len() < 30 {
+            self.fireflies.push(Firefly { x, y: y.min(0.6), heading: self.rng.range(0.0, TAU), phase: self.rng.range(0.0, TAU), flash: 1.0, life: 1.0 });
+        }
+    }
+
     /// Cielo y fondo: va antes que las plantas.
     pub fn draw_back(&self, canvas: &mut Canvas, view: &View, pal: &Palette) {
         let k = self.presence();

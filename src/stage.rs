@@ -107,6 +107,24 @@ impl Stage {
         self.garden.scenery.moment()
     }
 
+    /// Un click en la escena visible, en fracciones del lienzo.
+    pub fn poke(&mut self, kind: SceneKind, x: f32, y: f32) {
+        let scene: &mut dyn Scene = match kind {
+            SceneKind::Garden => &mut self.garden,
+            SceneKind::Cosmos => &mut self.cosmos,
+            SceneKind::Ocean => &mut self.ocean,
+            SceneKind::City => &mut self.city,
+            SceneKind::Campfire => &mut self.campfire,
+            SceneKind::Train => &mut self.train,
+            SceneKind::Reef => &mut self.reef,
+            SceneKind::Fireworks => &mut self.fireworks,
+            SceneKind::Sakura => &mut self.sakura,
+            SceneKind::Lofi => &mut self.lofi,
+            SceneKind::Aurora => &mut self.aurora,
+        };
+        scene.poke(x, y);
+    }
+
     pub fn draw(&self, kind: SceneKind, canvas: &mut Canvas, pal: &Palette) {
         match kind {
             SceneKind::Garden => self.garden.draw(canvas, pal),
@@ -120,6 +138,37 @@ impl Stage {
             SceneKind::Sakura => self.sakura.draw(canvas, pal),
             SceneKind::Lofi => self.lofi.draw(canvas, pal),
             SceneKind::Aurora => self.aurora.draw(canvas, pal),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::analysis::Bands;
+
+    fn run(stage: &mut Stage, seconds: f32, progress: f32) {
+        let bands = Bands::default();
+        let frame = Frame { dt: 1.0 / 60.0, bands: &bands, progress: Some(progress), song_len: 120.0, playing: true };
+        for _ in 0..(seconds * 60.0) as usize {
+            stage.update(&frame, 120, 40);
+        }
+    }
+
+    #[test]
+    fn a_click_changes_every_scene() {
+        for kind in SceneKind::ALL {
+            let mut quiet = Stage::new(7, Garden::new(7, 3, None));
+            let mut poked = Stage::new(7, Garden::new(7, 3, None));
+            run(&mut quiet, 2.0, 0.5);
+            run(&mut poked, 2.0, 0.5);
+            poked.poke(kind, 0.85, 0.25);
+            run(&mut quiet, 0.6, 0.5);
+            run(&mut poked, 0.6, 0.5);
+            let (mut a, mut b) = (Canvas::new(120, 40), Canvas::new(120, 40));
+            quiet.draw(kind, &mut a, &Palette::default());
+            poked.draw(kind, &mut b, &Palette::default());
+            assert!(a.to_image() != b.to_image(), "{} no respondió al click", kind.name());
         }
     }
 }

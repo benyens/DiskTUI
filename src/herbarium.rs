@@ -191,14 +191,19 @@ pub fn draw_specimen(canvas: &mut Canvas, entry: &Entry, cx: f32, cy: f32, radiu
 
 /// Pantalla del herbario. Vuelve al salir con `Esc` o `q`.
 pub fn view(terminal: &mut DefaultTerminal, mode: ColorMode) -> Result<()> {
-    let entries = load();
-    let week = crate::poster::Week::of(&entries, &today());
+    let all = load();
+    let week = crate::poster::Week::of(&all, &today());
+    let favorites = crate::favorites::Favorites::load();
+    let favorite_count = all.iter().filter(|e| favorites.contains(&e.artist, &e.title)).count();
+    let mut only_favorites = false;
     let pal = Palette::default();
     let mut canvas = Canvas::new(1, 1);
     let mut scroll = 0usize;
     let mut notice: Option<(String, Instant)> = None;
     let start = Instant::now();
     loop {
+        let entries: Vec<&Entry> =
+            all.iter().filter(|e| !only_favorites || favorites.contains(&e.artist, &e.title)).collect();
         let size = terminal.size()?;
         let cols = (size.width as usize / TILE.0).max(1);
         let rows_visible = (size.height as usize).saturating_sub(2) / TILE.1;
@@ -213,8 +218,12 @@ pub fn view(terminal: &mut DefaultTerminal, mode: ColorMode) -> Result<()> {
                     KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => return Ok(()),
                     KeyCode::Up => scroll = scroll.saturating_sub(1),
                     KeyCode::Down => scroll = (scroll + 1).min(max_scroll),
+                    KeyCode::Char('f') => {
+                        only_favorites = !only_favorites;
+                        scroll = 0;
+                    }
                     KeyCode::Char('p') => {
-                        let text = match crate::poster::save(&entries, &week) {
+                        let text = match crate::poster::save(&all, &week) {
                             Ok(_) => format!("póster guardado en {}", crate::paths::pictures_label()),
                             Err(e) => format!("no se pudo guardar el póster: {e:#}"),
                         };
@@ -237,7 +246,7 @@ pub fn view(terminal: &mut DefaultTerminal, mode: ColorMode) -> Result<()> {
         let ph = canvas.px_h().max(1) as f32;
         canvas.clear(|_, y| pal.bg_top.mix(pal.bg_bottom, y as f32 / ph));
         // Lo más nuevo primero.
-        let shown: Vec<(usize, &Entry)> = entries.iter().rev().enumerate().skip(scroll * cols).take(rows_visible.max(1) * cols).collect();
+        let shown: Vec<(usize, &Entry)> = entries.iter().rev().copied().enumerate().skip(scroll * cols).take(rows_visible.max(1) * cols).collect();
         let margin = (size.width as usize).saturating_sub(cols * TILE.0) / 2;
         for (i, entry) in &shown {
             let (col, row) = (i % cols, i / cols - scroll);
@@ -254,22 +263,32 @@ pub fn view(terminal: &mut DefaultTerminal, mode: ColorMode) -> Result<()> {
             canvas.render(buf, area, mode);
             let dim = pal.bg_top.mix(Rgb::WHITE, 0.45);
             let bright = pal.bg_top.mix(Rgb::WHITE, 0.9);
-            let header = format!(" ✿ Herbario · {} flores", entries.len());
+            let header = match (only_favorites, favorite_count) {
+                (true, _) => format!(" ★ Herbario · {} {}", entries.len(), if entries.len() == 1 { "favorita" } else { "favoritas" }),
+                (false, 0) => format!(" ✿ Herbario · {} flores", all.len()),
+                (false, n) => format!(" ✿ Herbario · {} flores · ★ {n}", all.len()),
+            };
             let end = Span::raw(header.as_str()).width() as u16;
             put(buf, area, mode, 0, 0, &header, pal.petal.mix(Rgb::WHITE, 0.3), area.width as usize);
             if let Some(line) = week.line() {
                 put(buf, area, mode, end, 0, &format!("   {line}"), dim, (area.width as usize).saturating_sub(end as usize));
             }
             if entries.is_empty() {
-                let text = "Aún no hay flores. Escucha una canción casi entera y quedará guardada.";
+                let text = if only_favorites {
+                    "Aún no hay favoritas aquí. Mientras suena una canción, márcala con f."
+                } else {
+                    "Aún no hay flores. Escucha una canción casi entera y quedará guardada."
+                };
                 put(buf, area, mode, 2, area.height / 2, text, dim, area.width as usize - 2);
             }
             for (i, entry) in &shown {
                 let (col, row) = (i % cols, i / cols - scroll);
                 let x0 = (margin + col * TILE.0) as u16;
                 let y0 = (1 + row * TILE.1) as u16;
+                let title =
+                    if favorites.contains(&entry.artist, &entry.title) { format!("★ {}", entry.title) } else { entry.title.clone() };
                 for (k, (text, color)) in
-                    [(&entry.title, bright), (&entry.artist, dim), (&entry.info(), dim), (&entry.date, dim.mix(pal.bg_top, 0.4))]
+                    [(&title, bright), (&entry.artist, dim), (&entry.info(), dim), (&entry.date, dim.mix(pal.bg_top, 0.4))]
                         .into_iter()
                         .enumerate()
                 {
@@ -280,7 +299,8 @@ pub fn view(terminal: &mut DefaultTerminal, mode: ColorMode) -> Result<()> {
             }
             let footer = match notice.as_ref().filter(|(_, at)| at.elapsed() < Duration::from_secs(5)) {
                 Some((text, _)) => format!(" {text}"),
-                None => " ↑↓ o scroll para desplazar · p guarda un póster · Esc para volver".to_string(),
+                None if only_favorites => " ↑↓ o scroll para desplazar · f muestra todas · p guarda un póster · Esc para volver".to_string(),
+                None => " ↑↓ o scroll para desplazar · f solo favoritas · p guarda un póster · Esc para volver".to_string(),
             };
             put(buf, area, mode, 0, area.height.saturating_sub(1), &footer, dim, area.width as usize);
         })?;

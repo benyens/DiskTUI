@@ -371,6 +371,20 @@ impl Scene for City {
         self.scenery.draw_front(canvas, &view, pal);
     }
 
+    /// Un click lanza un fuego artificial ahí.
+    fn poke(&mut self, x: f32, y: f32) {
+        if self.bursts.len() < 12 {
+            self.bursts.push(Burst {
+                x,
+                y: y.min(0.7),
+                age: 0.0,
+                size: self.rng.range(0.8, 1.1),
+                tint: (self.rng.next() * 3.0) as u8,
+                seed: (self.rng.next() * 1e6) as u32,
+            });
+        }
+    }
+
     fn new_track(&mut self) {
         if self.sinking.is_none() {
             self.sinking = Some(0.0);

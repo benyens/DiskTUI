@@ -297,3 +297,72 @@ mod bench {
         }
     }
 }
+
+/// Bytes que se mandan a la terminal por cuadro, por escena:
+/// `cargo test --release bench_terminal -- --ignored --nocapture`.
+#[cfg(test)]
+mod bench_terminal {
+    use super::*;
+    use crate::analysis::Bands;
+    use ratatui::backend::CrosstermBackend;
+    use ratatui::layout::Rect;
+    use ratatui::{Terminal, TerminalOptions, Viewport};
+    use std::cell::Cell;
+    use std::rc::Rc;
+
+    /// Cuenta lo que se escribe, sin guardarlo.
+    struct Count(Rc<Cell<usize>>);
+
+    impl std::io::Write for Count {
+        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+            self.0.set(self.0.get() + buf.len());
+            Ok(buf.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    #[test]
+    #[ignore]
+    fn bench_terminal() {
+        let (w, h) = (200u16, 55u16);
+        let pal = Palette::default();
+        let mut total_all = 0usize;
+        for (kind, steady_on) in SceneKind::ALL.into_iter().flat_map(|k| [(k, false), (k, true)]) {
+            let mut steady = crate::steady::Steady::default();
+            let mut stage = Stage::new(3, Garden::new(3, 3, None));
+            let count = Rc::new(Cell::new(0));
+            let backend = CrosstermBackend::new(Count(count.clone()));
+            let mut term = Terminal::with_options(backend, TerminalOptions { viewport: Viewport::Fixed(Rect::new(0, 0, w, h)) }).unwrap();
+            let mut canvas = Canvas::new(w as usize, h as usize);
+            let mut bands = Bands { level: 0.6, bass: 0.5, mid: 0.5, treble: 0.4, intensity: 0.6, ..Bands::default() };
+            let (mut bytes, n) = (0usize, 120);
+            for i in 0..n + 60 {
+                bands.beat = i % 30 == 0;
+                bands.kick = i % 30 == 0;
+                let frame = Frame { dt: 1.0 / 60.0, bands: &bands, progress: Some(0.5), song_len: 120.0, playing: true };
+                stage.update(&frame, w as usize, h as usize);
+                stage.draw(kind, &mut canvas, &pal);
+                let before = count.get();
+                term.draw(|f| {
+                    let area = f.area();
+                    canvas.render(f.buffer_mut(), area, crate::color::ColorMode::True);
+                    if steady_on {
+                        steady.apply(f.buffer_mut(), area);
+                    }
+                })
+                .unwrap();
+                if i >= 60 {
+                    bytes += count.get() - before;
+                }
+            }
+            if steady_on {
+                total_all += bytes / n;
+            }
+            let tag = if steady_on { "estable" } else { "antes" };
+            eprintln!("{:<22} {:<8} {:7} bytes/cuadro  ({:.1} MB/s a 60 FPS)", kind.name(), tag, bytes / n, bytes as f64 / n as f64 * 60.0 / 1e6);
+        }
+        eprintln!("promedio {} bytes/cuadro", total_all / SceneKind::ALL.len());
+    }
+}

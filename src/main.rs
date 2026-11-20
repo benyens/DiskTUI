@@ -44,6 +44,7 @@ mod scenery;
 mod session;
 mod spotify;
 mod stage;
+mod steady;
 mod structure;
 mod text;
 mod train;
@@ -501,6 +502,7 @@ fn run(
 ) -> Result<RunEnd> {
     let mode = ColorMode::detect();
     let battery = power::Battery::watch();
+    let mut steady = steady::Steady::default();
     // Segundos seguidos sin reproducir: en pausa larga se dibuja más lento.
     let mut paused_for = 0.0f32;
     let mut stage = Stage::new(seed, Garden::new(seed, args.flowers, args.petals));
@@ -938,6 +940,11 @@ fn run(
                     mode,
                 };
                 ui::draw_analysis(frame.buffer_mut(), plant_area, &analysis);
+            }
+            // Los cambios de color que no se notan no viajan a la terminal.
+            // `DISKTUI_SIN_STEADY=1` lo apaga, para comparar.
+            if std::env::var_os("DISKTUI_SIN_STEADY").is_none() {
+                steady.apply(frame.buffer_mut(), area);
             }
         })?;
 

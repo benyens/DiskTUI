@@ -330,6 +330,11 @@ toda la pantalla 60 veces por segundo. Por eso, en pausa o en la pantalla de esp
 | siempre fluida | 60 FPS siempre, salvo en pausa |
 | ahorro | 30 FPS siempre (`--ahorro`) |
 
+Además, los cambios de color tan chicos que no se notan (el cielo que se aclara de a poco,
+un brillo que late apenas) no se mandan a la terminal: en promedio viaja menos de la mitad
+de los datos por cuadro. Las mediciones están en los tests ignorados `bench_scenes`,
+`bench_terminal` y `bench_analysis` (`cargo test --release bench -- --ignored --nocapture`).
+
 ### Letras sincronizadas
 
 Con la tecla `l`, la fila *Letras* del menú o `--letras`, la letra de lo que suena aparece
@@ -681,6 +686,7 @@ flowchart LR
 | `src/transition.rs` | Transiciones entre canciones |
 | `src/lyrics.rs` | Letras sincronizadas: LRC, LRCLIB y caché |
 | `src/power.rs` | Ahorro de batería: FPS según pausa y batería |
+| `src/steady.rs` | No manda a la terminal los cambios de color que no se notan |
 | `src/coast.rs` | Escena ruta costera: auto, mar, faroles y gaviotas |
 | `src/forest.rs` | Escena bosque: árboles que crecen y florecen |
 | `src/moment.rs` | El momento del drop |

@@ -578,3 +578,35 @@ mod tests {
         assert!((7..=9).contains(&kicks), "esperaba ~8 bombos, hubo {kicks}");
     }
 }
+
+/// Costo del análisis: `cargo test --release bench_analysis -- --ignored --nocapture`.
+#[cfg(test)]
+mod bench {
+    use super::*;
+
+    #[test]
+    #[ignore]
+    fn bench_analysis() {
+        let sr = 48_000u32;
+        let mut a = Analyzer::new(sr);
+        let per_tick = (sr as f32 / ANALYSIS_HZ) as usize;
+        let seconds = 20.0;
+        let ticks = (seconds * ANALYSIS_HZ) as usize;
+        // Una señal con bombo cada medio segundo y algo de agudos.
+        let mut t = 0usize;
+        let mut chunk = vec![0.0f32; per_tick];
+        let start = std::time::Instant::now();
+        for _ in 0..ticks {
+            for s in chunk.iter_mut() {
+                let x = t as f32 / sr as f32;
+                let kick = if (x % 0.5) < 0.05 { (x % 0.5 * 60.0 * std::f32::consts::TAU).sin() * 0.8 } else { 0.0 };
+                *s = kick + 0.1 * (x * 3000.0 * std::f32::consts::TAU).sin();
+                t += 1;
+            }
+            a.push(&chunk);
+            let _ = a.analyze(1.0 / ANALYSIS_HZ);
+        }
+        let spent = start.elapsed().as_secs_f64();
+        eprintln!("análisis: {:.1} ms por segundo de audio ({:.2}% de un núcleo), {} Hz", spent / seconds as f64 * 1000.0, spent / seconds as f64 * 100.0, ANALYSIS_HZ);
+    }
+}

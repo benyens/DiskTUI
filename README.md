@@ -180,6 +180,7 @@ También se puede saltar el menú desde la línea de comandos:
 | `--sin-tarjeta` | No muestra la tarjeta con el título al empezar cada canción |
 | `--letras` | Letras sincronizadas desde LRCLIB |
 | `--ahorro` | Gasta menos batería: 30 FPS como máximo |
+| `--dormir <minutos>` | Temporizador para dormir: baja el volumen al final y pausa |
 | `--hora-real` | El cielo sigue la hora de tu reloj |
 | `--hora <HH:MM>` | Fija la hora del cielo, para probar |
 | `--transicion <nombre>` | Entre canciones: `auto` (una distinta cada vez), `fundido`, `mariposas`, `petalos`, `iris`, `ola` o `destellos` |
@@ -198,6 +199,7 @@ También se puede saltar el menú desde la línea de comandos:
 | `f` | Marcar o desmarcar la canción como favorita |
 | `a` | Aleatorio en Spotify o Apple Music (encender o apagar) |
 | `r` | Repetir en Spotify (sí o no) o Apple Music (lista, canción, nada) |
+| `z` | Temporizador para dormir: 15, 30, 45, 60, 90 minutos o apagado |
 | click | La escena responde donde hiciste click |
 | `d` | Panel de detalles: qué entendió de la canción, la fuente de audio y los avisos completos. Con el panel abierto, `1`–`5` corrigen el ánimo y `0` lo devuelve a automático |
 | `n` / `p` | Canción siguiente / anterior (Spotify y Apple Music) |
@@ -343,6 +345,14 @@ de los datos por cuadro. El panel de detalles (`d`) muestra la fila *rendimiento
 de ahora, cuánto de la pantalla cambia por cuadro y si anda con batería. Las mediciones están en los tests ignorados `bench_scenes`,
 `bench_terminal` y `bench_analysis` (`cargo test --release bench -- --ignored --nocapture`).
 
+### Temporizador para dormir
+
+`z` recorre 15, 30, 45, 60 y 90 minutos (y apagado), o `--dormir 30` al abrir. El HUD
+muestra ☾ con los minutos que faltan. En los últimos minutos baja de a poco el volumen de
+Spotify o Apple Music y la escena se va haciendo de noche; al final pausa y deja el volumen
+como estaba. En Windows solo pausa al final: el volumen de la app no se puede fijar desde
+afuera.
+
 ### Letras sincronizadas
 
 Con la tecla `l`, la fila *Letras* del menú o `--letras`, la letra de lo que suena aparece
@@ -413,6 +423,14 @@ Arriba, un resumen de la semana: cuántas flores, el ánimo más escuchado y el 
 **Favoritas.** Mientras suena una canción, `f` la marca como favorita (la nota del HUD se
 vuelve ★) y otra vez la desmarca. En el herbario las favoritas llevan ★ y la tecla `f`
 muestra solo esas. Quedan en `favoritas.tsv`, junto al herbario.
+
+**Resumen de lo que escuchas.** En el herbario, `r` abre tu resumen de la semana, el mes o
+desde siempre (←→ para cambiar): cuántas canciones, los artistas que más sonaron, cómo se
+repartió el ánimo, el tempo promedio, la tonalidad más escuchada, la canción más repetida y
+el día con más música. `p` lo guarda como imagen para compartir:
+
+<div align="center"><img src="docs/resumen.png" alt="Resumen del mes" width="60%"></div>
+
 La tecla `p` guarda un **póster** PNG con todas las flores, su título, artista y fecha:
 
 <div align="center"><img src="docs/poster.png" alt="Póster del herbario" width="60%"></div>
@@ -700,6 +718,8 @@ flowchart LR
 | `src/concert.rs` | Escena concierto: pantalla LED, luces, parlantes y público |
 | `src/alley.rs` | Escena callejón: perspectiva, neón, reflejos en el suelo mojado |
 | `src/koi.rs` | Escena estanque: kois, nenúfares y ondas |
+| `src/sleep.rs` | Temporizador para dormir |
+| `src/summary.rs` | Resumen de lo que escuchas (pantalla y póster) |
 | `src/moment.rs` | El momento del drop |
 | `src/idle.rs` | Pantalla de espera |
 | `src/poster.rs` | Póster del herbario y resumen de la semana |

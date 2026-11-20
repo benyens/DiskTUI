@@ -196,6 +196,8 @@ pub fn view(terminal: &mut DefaultTerminal, mode: ColorMode) -> Result<()> {
     let favorites = crate::favorites::Favorites::load();
     let favorite_count = all.iter().filter(|e| favorites.contains(&e.artist, &e.title)).count();
     let mut only_favorites = false;
+    // Resumen de lo que escuchas (tecla r): el período que se está viendo.
+    let mut summary: Option<crate::summary::Period> = None;
     let pal = Palette::default();
     let mut canvas = Canvas::new(1, 1);
     let mut scroll = 0usize;
@@ -213,8 +215,25 @@ pub fn view(terminal: &mut DefaultTerminal, mode: ColorMode) -> Result<()> {
 
         while event::poll(Duration::ZERO)? {
             match event::read()? {
+                Event::Key(key) if key.kind == KeyEventKind::Press && summary.is_some() => match key.code {
+                    KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => return Ok(()),
+                    KeyCode::Esc | KeyCode::Char('r') | KeyCode::Char('q') => summary = None,
+                    KeyCode::Left => summary = summary.map(|p| p.step(-1)),
+                    KeyCode::Right | KeyCode::Tab => summary = summary.map(|p| p.step(1)),
+                    KeyCode::Char('p') => {
+                        let period = summary.unwrap_or(crate::summary::Period::Week);
+                        let s = crate::summary::Summary::of(&all, &today(), period, |e| favorites.contains(&e.artist, &e.title));
+                        let text = match crate::summary::save(&s, period) {
+                            Ok(_) => format!("resumen guardado en {}", crate::paths::pictures_label()),
+                            Err(e) => format!("no se pudo guardar el resumen: {e:#}"),
+                        };
+                        notice = Some((text, Instant::now()));
+                    }
+                    _ => {}
+                },
                 Event::Key(key) if key.kind == KeyEventKind::Press => match key.code {
                     KeyCode::Esc | KeyCode::Char('q') | KeyCode::Char('g') | KeyCode::Enter => return Ok(()),
+                    KeyCode::Char('r') => summary = Some(crate::summary::Period::Week),
                     KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => return Ok(()),
                     KeyCode::Up => scroll = scroll.saturating_sub(1),
                     KeyCode::Down => scroll = (scroll + 1).min(max_scroll),
@@ -255,6 +274,51 @@ pub fn view(terminal: &mut DefaultTerminal, mode: ColorMode) -> Result<()> {
             let cx = x0 as f32 + TILE.0 as f32 / 2.0;
             let cy = (y0 as f32 + 3.6) * 2.0;
             draw_specimen(&mut canvas, entry, cx, cy, 5.5, time + *i as f32);
+        }
+
+        if let Some(period) = summary {
+            let s = crate::summary::Summary::of(&all, &today(), period, |e| favorites.contains(&e.artist, &e.title));
+            let rows = s.rows(period, &pal);
+            canvas.clear(|_, y| pal.bg_top.mix(pal.bg_bottom, y as f32 / ph));
+            terminal.draw(|f| {
+                let area = f.area();
+                let buf = f.buffer_mut();
+                canvas.render(buf, area, mode);
+                let width: usize = rows
+                    .iter()
+                    .map(|r| r.iter().map(|s| match s { crate::summary::Seg::Text(t, _) => Span::raw(t.as_str()).width(), crate::summary::Seg::Bar { width, .. } => *width }).sum::<usize>())
+                    .max()
+                    .unwrap_or(0);
+                let x0 = (area.width as usize).saturating_sub(width) / 2;
+                let y0 = (area.height as usize).saturating_sub(rows.len() + 2) / 2;
+                for (i, row) in rows.iter().enumerate() {
+                    let mut x = x0 as u16;
+                    let y = (y0 + i) as u16;
+                    for seg in row {
+                        match seg {
+                            crate::summary::Seg::Text(t, c) => {
+                                put(buf, area, mode, x, y, t, *c, (area.width as usize).saturating_sub(x as usize));
+                                x += Span::raw(t.as_str()).width() as u16;
+                            }
+                            crate::summary::Seg::Bar { frac, width, color } => {
+                                // Al menos un bloque si hay algo, para que no parezca cero.
+                                let n = ((frac.clamp(0.0, 1.0) * *width as f32).round() as usize).max(usize::from(*frac > 0.0)).min(*width);
+                                put(buf, area, mode, x, y, &"█".repeat(n), *color, *width);
+                                put(buf, area, mode, x + n as u16, y, &"░".repeat(width - n), pal.bg_top.mix(Rgb::WHITE, 0.15), *width);
+                                x += *width as u16;
+                            }
+                        }
+                    }
+                }
+                let dim = pal.bg_top.mix(Rgb::WHITE, 0.45);
+                let footer = match notice.as_ref().filter(|(_, at)| at.elapsed() < Duration::from_secs(5)) {
+                    Some((text, _)) => format!(" {text}"),
+                    None => " ←→ semana, mes o todo · p guarda el resumen como imagen · r o Esc vuelve al herbario".to_string(),
+                };
+                put(buf, area, mode, 0, area.height.saturating_sub(1), &footer, dim, area.width as usize);
+            })?;
+            std::thread::sleep(Duration::from_millis(50));
+            continue;
         }
 
         terminal.draw(|f| {
@@ -299,8 +363,8 @@ pub fn view(terminal: &mut DefaultTerminal, mode: ColorMode) -> Result<()> {
             }
             let footer = match notice.as_ref().filter(|(_, at)| at.elapsed() < Duration::from_secs(5)) {
                 Some((text, _)) => format!(" {text}"),
-                None if only_favorites => " ↑↓ o scroll para desplazar · f muestra todas · p guarda un póster · Esc para volver".to_string(),
-                None => " ↑↓ o scroll para desplazar · f solo favoritas · p guarda un póster · Esc para volver".to_string(),
+                None if only_favorites => " ↑↓ o scroll para desplazar · f muestra todas · r resumen · p guarda un póster · Esc para volver".to_string(),
+                None => " ↑↓ o scroll para desplazar · f solo favoritas · r resumen · p guarda un póster · Esc para volver".to_string(),
             };
             put(buf, area, mode, 0, area.height.saturating_sub(1), &footer, dim, area.width as usize);
         })?;

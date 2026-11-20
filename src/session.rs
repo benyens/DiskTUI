@@ -45,6 +45,10 @@ pub trait Session {
     fn skip(&mut self, _direction: i32) {}
     /// Adelanta (o retrocede, con negativo) `seconds` dentro de la canción.
     fn seek(&mut self, _seconds: f32) {}
+    /// Fija el volumen de la app (0 a 1). `false` si la fuente no lo permite.
+    fn set_volume(&mut self, _volume: f32) -> bool {
+        false
+    }
     /// Alterna el aleatorio de la app. `false` si la fuente no tiene.
     fn toggle_shuffle(&mut self) -> bool {
         false

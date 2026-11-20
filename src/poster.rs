@@ -22,7 +22,7 @@ const FOOTER: usize = 2;
 const MAX_COLUMNS: usize = 5;
 
 /// Día número `n` desde 1970-01-01 para una fecha `AAAA-MM-DD`.
-fn day_number(date: &str) -> Option<i64> {
+pub fn day_number(date: &str) -> Option<i64> {
     let mut parts = date.trim().splitn(3, '-').map(|p| p.parse::<i64>().ok());
     let (y, m, d) = (parts.next()??, parts.next()??, parts.next()??);
     if !(1..=12).contains(&m) || !(1..=31).contains(&d) {

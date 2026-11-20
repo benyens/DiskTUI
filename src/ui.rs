@@ -131,6 +131,8 @@ pub struct Hud<'a> {
     pub auto_scene: bool,
     /// La canción que suena está marcada como favorita: la nota se vuelve estrella.
     pub favorite: bool,
+    /// Minutos que faltan del temporizador para dormir.
+    pub sleep: Option<u32>,
     /// Aviso pasajero (postal guardada, flor al herbario): reemplaza el texto de la derecha.
     pub notice: Option<&'a str>,
 }
@@ -416,6 +418,9 @@ fn draw_full(buf: &mut Buffer, area: Rect, hud: &Hud) {
             if let Some(v) = session.volume() {
                 text.push_str(&format!(" · vol {:.0}%", v * 100.0));
             }
+            if let Some(m) = hud.sleep {
+                text.push_str(&format!(" · ☾ {m} min"));
+            }
             (text, dim)
         }
     };
@@ -615,7 +620,7 @@ mod tests {
         for width in [8u16, 39, 40, 41, 60, 200] {
             let area = Rect::new(0, 0, width, 3);
             let mut buf = Buffer::empty(area);
-            let hud = Hud { session: &session, pal: &pal, mode: ColorMode::True, timeline: &timeline, bands: &bands, scene: SceneKind::Garden, auto_scene: false, favorite: false, notice: None };
+            let hud = Hud { session: &session, pal: &pal, mode: ColorMode::True, timeline: &timeline, bands: &bands, scene: SceneKind::Garden, auto_scene: false, favorite: false, sleep: None, notice: None };
             draw(&mut buf, area, &hud);
         }
     }
@@ -661,7 +666,7 @@ mod tests {
         for rows in [3u16, 1] {
             let area = Rect::new(0, 0, 160, rows);
             let mut buf = Buffer::empty(area);
-            let hud = Hud { session: &session, pal: &pal, mode: ColorMode::True, timeline: &timeline, bands: &bands, scene: SceneKind::Garden, auto_scene: false, favorite: false, notice: None };
+            let hud = Hud { session: &session, pal: &pal, mode: ColorMode::True, timeline: &timeline, bands: &bands, scene: SceneKind::Garden, auto_scene: false, favorite: false, sleep: None, notice: None };
             draw(&mut buf, area, &hud);
             let text = text_of(&buf);
             assert!(text.contains("sin señal"), "{rows} filas: {text}");

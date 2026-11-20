@@ -45,8 +45,10 @@ mod render;
 mod scene;
 mod scenery;
 mod session;
+mod sleep;
 mod spotify;
 mod stage;
+mod summary;
 mod steady;
 mod structure;
 mod text;
@@ -110,6 +112,7 @@ OPCIONES
   --hora-real               El cielo sigue la hora de tu reloj: de noche, noche
   --letras                  Letras sincronizadas desde LRCLIB (pide la letra a internet)
   --ahorro                  Gasta menos batería: 30 FPS como máximo
+  --dormir <minutos>        Temporizador: baja el volumen al final y pausa
   --hora <HH:MM>            Fija la hora del cielo (para probar cómo se ve)
   --transicion <nombre>     Entre canciones: auto (una distinta cada vez), fundido,
                             mariposas, petalos, iris, ola o destellos
@@ -136,6 +139,7 @@ TECLAS
   f          marcar o desmarcar la canción como favorita (★ en el herbario)
   a          aleatorio en Spotify o Apple Music (encender o apagar)
   r          repetir en Spotify o Apple Music
+  z          temporizador para dormir: 15, 30, 45, 60, 90 minutos o apagado
   m          volver al menú
 ";
 
@@ -171,6 +175,8 @@ struct Args {
     lyrics: bool,
     /// Ahorro de batería pedido con `--ahorro`.
     saver: bool,
+    /// Temporizador para dormir, en minutos.
+    sleep: Option<u32>,
     /// Modo mini, para un panel chico: HUD de una línea, una flor, 30 FPS.
     mini: bool,
     device: Option<String>,
@@ -200,6 +206,7 @@ fn parse_args() -> Result<Args> {
         hour: None,
         lyrics: false,
         saver: false,
+        sleep: None,
         mini: false,
         device: None,
         global: false,
@@ -233,6 +240,7 @@ fn parse_args() -> Result<Args> {
             "--hora-real" => args.clock = true,
             "--letras" => args.lyrics = true,
             "--ahorro" => args.saver = true,
+            "--dormir" => args.sleep = Some(value("--dormir")?.parse::<u32>()?.clamp(1, 600)),
             "--hora" => {
                 let text = value("--hora")?;
                 let (h, m) = text.split_once(':').unwrap_or((&text, "0"));
@@ -314,6 +322,7 @@ struct RunOptions {
     clock: Option<Option<f32>>,
     lyrics: bool,
     energy: power::Energy,
+    sleep: Option<u32>,
     mini: bool,
     /// Al terminar la canción se vuelve al menú en vez de salir.
     from_menu: bool,
@@ -483,6 +492,7 @@ fn launch(
             clock: settings.clock.then_some(args.hour),
             lyrics: settings.lyrics,
             energy: settings.energy,
+            sleep: args.sleep,
             mini: args.mini,
             from_menu,
         };
@@ -509,6 +519,7 @@ fn run(
     let mut steady = steady::Steady::default();
     // Para el panel de detalles: los FPS de ahora y cuánto de la pantalla cambia (promedio).
     let mut fps_now = args.fps;
+    let mut sleep = args.sleep.map(sleep::Sleep::new);
     let mut changed_avg = 0.0f32;
     // Segundos seguidos sin reproducir: en pausa larga se dibuja más lento.
     let mut paused_for = 0.0f32;
@@ -608,6 +619,14 @@ fn run(
                     KeyCode::Char('-') | KeyCode::Char('_') => session.change_volume(-1),
                     KeyCode::Char('h') => show_hud = !show_hud,
                     KeyCode::Char('c') => show_cover = !show_cover,
+                    KeyCode::Char('z') => {
+                        sleep = sleep::Sleep::next(sleep.as_ref()).map(sleep::Sleep::new);
+                        let text = match &sleep {
+                            Some(s) => format!("☾ a dormir en {} min: al final baja el volumen y pausa", s.minutes_left()),
+                            None => "temporizador apagado".to_string(),
+                        };
+                        notice = Some((text, Instant::now()));
+                    }
                     KeyCode::Char('a') | KeyCode::Char('r') => {
                         let sent = if key.code == KeyCode::Char('a') { session.toggle_shuffle() } else { session.toggle_repeat() };
                         if !sent {
@@ -833,7 +852,29 @@ fn run(
             song_len: song_len / args.speed,
             playing: session.playing(),
         };
-        stage.set_clock(args.clock.map(|fixed| fixed.unwrap_or_else(paths::hour_now)));
+        // Temporizador para dormir: baja el volumen, la escena se hace de noche y al final pausa.
+        if let Some(s) = &mut sleep {
+            match s.tick(dt, session.volume()) {
+                sleep::Action::Nothing => {}
+                sleep::Action::SetVolume(v) => {
+                    session.set_volume(v);
+                }
+                sleep::Action::Stop(volume) => {
+                    if session.playing() {
+                        session.toggle_pause();
+                    }
+                    if let Some(v) = volume {
+                        session.set_volume(v);
+                    }
+                    notice = Some(("☾ buenas noches".to_string(), Instant::now()));
+                }
+            }
+        }
+        if sleep.as_ref().is_some_and(|s| s.minutes_left() == 0) {
+            sleep = None;
+        }
+        let sleep_sky = sleep.as_ref().and_then(sleep::Sleep::sky_hour);
+        stage.set_clock(sleep_sky.or(args.clock.map(|fixed| fixed.unwrap_or_else(paths::hour_now))));
         stage.update(&frame, canvas.w, canvas.h);
         stage.draw(active, &mut canvas, &palette);
         if let Some((from, tr)) = &scene_fade {
@@ -924,6 +965,7 @@ fn run(
                     scene: active,
                     auto_scene: choice == SceneChoice::Auto,
                     favorite: favorites.contains(&session.track().artist, &session.track().title),
+                    sleep: sleep.as_ref().map(sleep::Sleep::minutes_left),
                     notice: notice.as_ref().filter(|(_, at)| at.elapsed() < Duration::from_secs(5)).map(|(t, _)| t.as_str()),
                 };
                 ui::draw(frame.buffer_mut(), hud_area, &hud);
@@ -1054,6 +1096,7 @@ fn dump_frame(secs: f32, w: u16, h: u16, args: &Args) -> String {
             scene: kind,
             auto_scene: choice == SceneChoice::Auto,
             favorite: false,
+            sleep: None,
             notice: None,
         };
         ui::draw(&mut buf, Rect { y: h - hud_rows, height: hud_rows, ..area }, &hud);

@@ -310,6 +310,8 @@ enum Command_ {
     Seek(f32),
     Shuffle,
     Repeat,
+    /// Volumen exacto (0 a 1), para el temporizador para dormir.
+    SetVolume(f32),
 }
 
 enum Update {
@@ -352,6 +354,9 @@ fn toggle_notice(shuffle: bool, answer: Option<&str>) -> String {
 fn run_command(app: App, command: Command_) -> Option<String> {
     let name = app.script_name();
     match command {
+        Command_::SetVolume(v) => {
+            osascript(&format!("tell application \"{name}\" to set sound volume to {}", (v.clamp(0.0, 1.0) * 100.0).round() as u32));
+        }
         Command_::Shuffle | Command_::Repeat => {
             let shuffle = matches!(command, Command_::Shuffle);
             let answer = osascript(&toggle_script(app, shuffle));
@@ -389,7 +394,7 @@ fn run_command(app: App, command: Command_) -> Option<String> {
         Command_::PlayPause => control(id, Control::PlayPause),
         Command_::Skip(direction) => control(id, if direction > 0 { Control::Next } else { Control::Previous }),
         Command_::Seek(seconds) => control(id, Control::Seek(seconds)),
-        Command_::Volume(_) => {}
+        Command_::Volume(_) | Command_::SetVolume(_) => {}
         Command_::Shuffle => return Some(toggle(id, Toggle::Shuffle)),
         Command_::Repeat => return Some(toggle(id, Toggle::Repeat)),
     }
@@ -659,6 +664,17 @@ impl Session for SpotifySession {
 
     fn toggle_shuffle(&mut self) -> bool {
         self.commands.send(Command_::Shuffle).is_ok()
+    }
+
+    /// En Windows el volumen de la app no se puede fijar: el temporizador solo pausa.
+    fn set_volume(&mut self, volume: f32) -> bool {
+        if cfg!(windows) {
+            return false;
+        }
+        if let Some(n) = &mut self.now {
+            n.volume = Some(volume);
+        }
+        self.commands.send(Command_::SetVolume(volume)).is_ok()
     }
 
     fn toggle_repeat(&mut self) -> bool {

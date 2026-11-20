@@ -16,9 +16,9 @@ carátula.
 ![audio local](https://img.shields.io/badge/audio-100%25%20local-green)
 ![Vibecoded](https://img.shields.io/badge/vibecoded-con%20Claude-8A2BE2)
 
-<img src="docs/escenas.gif" alt="Las catorce escenas de DiskTUI, una tras otra" width="90%">
+<img src="docs/escenas.gif" alt="Las diecisiete escenas de DiskTUI, una tras otra" width="90%">
 
-<sub>Las catorce escenas, generadas desde la salida real del programa (`--demo`).</sub>
+<sub>Las diecisiete escenas, generadas desde la salida real del programa (`--demo`).</sub>
 
 **[Instalar](#instalación) · [Usar](#uso) · [Escenas](#escenas) · [Cómo entiende la canción](#cómo-entiende-la-canción) · [Vibecoded](#hecho-con-vibe-coding)**
 
@@ -63,6 +63,10 @@ carátula.
 | 🌌 **Aurora boreal** · cortinas de luz sobre un lago helado | 🦋 **Mariposas** · una migración que cruza la pradera en diagonal hacia arriba |
 | <img src="docs/ruta.png" alt="Ruta costera"> | <img src="docs/bosque.png" alt="Bosque"> |
 | 🚗 **Ruta costera** · un auto maneja junto al mar; el tempo pone la velocidad | 🌳 **Bosque** · brota, crece y florece durante la canción |
+| <img src="docs/concierto.png" alt="Concierto"> | <img src="docs/callejon.png" alt="Callejón"> |
+| 🎤 **Concierto** · pantalla LED, luces que barren al ritmo y un público que salta | 🏮 **Callejón** · neón, faroles y lluvia en un callejón japonés que se refleja en el suelo mojado |
+| <img src="docs/estanque.png" alt="Estanque"> | |
+| 🐟 **Estanque** · kois que nadan entre nenúfares y flores de loto | |
 
 Con la escena en *automática* (el valor por defecto), cada canción elige la suya según su
 ánimo. La tecla `e` las recorre a mano.
@@ -164,7 +168,7 @@ También se puede saltar el menú desde la línea de comandos:
 
 | Opción | Efecto |
 | --- | --- |
-| `--escena <nombre>` | `auto` (por defecto: la elige el ánimo), `jardin`, `sistema`, `oceano`, `ciudad`, `fogata`, `tren`, `fondo`, `fuegos`, `cerezos`, `lofi`, `aurora` o `mariposas` |
+| `--escena <nombre>` | `auto` (por defecto: la elige el ánimo), `jardin`, `sistema`, `oceano`, `ciudad`, `fogata`, `tren`, `fondo`, `fuegos`, `cerezos`, `lofi`, `aurora`, `mariposas`, `ruta`, `bosque`, `concierto`, `callejon` o `estanque` |
 | `--flores <n>` | Flores del jardín, de 1 a 3. Por defecto 3 |
 | `--petalos <n>` | Pétalos de la flor principal, de 3 a 12 |
 | `--velocidad <x>` | Qué tan rápido crece la escena. `2` = el doble. Por defecto 1 |
@@ -184,7 +188,7 @@ También se puede saltar el menú desde la línea de comandos:
 
 | Tecla | Acción |
 | --- | --- |
-| `e` | Cambiar de escena: automática, jardín, sistema solar, océano, ciudad, fogata, tren, fondo del mar, fuegos artificiales, cerezos, cuarto lofi, aurora boreal, mariposas |
+| `e` | Cambiar de escena: automática, jardín, sistema solar, océano, ciudad, fogata, tren, fondo del mar, fuegos artificiales, cerezos, cuarto lofi, aurora boreal, mariposas, ruta costera, bosque, concierto, callejón, estanque |
 | `←` / `→` | Retroceder / adelantar 10 segundos (archivo, Spotify, Apple Music) |
 | `g` | Grabar un GIF de 8 segundos en `~/Pictures/DiskTUI` (`g` otra vez lo corta antes) |
 | `v` | Grabar un GIF vertical (9:16) con carátula y título, para historias |
@@ -283,15 +287,15 @@ varias escenas, cada canción se queda siempre con la misma:
 
 | Ánimo | Escena |
 | --- | --- |
-| alegre | 🌼 jardín al sol, 🎆 fuegos artificiales, 🌸 cerezos, 🦋 mariposas, 🚗 ruta costera o 🌳 bosque |
-| serena | 🔥 fogata al atardecer, 🪼 fondo del mar, 🌸 cerezos, 🌌 aurora boreal, 🦋 mariposas o 🌳 bosque |
-| nostálgica | 🪐 sistema solar, 🚆 tren nocturno, 🎆 fuegos artificiales, 🐈 cuarto lofi, 🌌 aurora boreal o 🚗 ruta costera de noche |
-| triste | ⛵ océano con lluvia, 🚆 tren bajo la lluvia o 🐈 cuarto lofi |
-| intensa | 🌆 ciudad con tormenta o 🚗 ruta costera a toda velocidad |
+| alegre | 🌼 jardín al sol, 🎆 fuegos artificiales, 🌸 cerezos, 🦋 mariposas, 🚗 ruta costera, 🌳 bosque, 🐟 estanque o 🎤 concierto |
+| serena | 🔥 fogata al atardecer, 🪼 fondo del mar, 🌸 cerezos, 🌌 aurora boreal, 🦋 mariposas, 🌳 bosque o 🐟 estanque |
+| nostálgica | 🪐 sistema solar, 🚆 tren nocturno, 🎆 fuegos artificiales, 🐈 cuarto lofi, 🌌 aurora boreal o 🚗 ruta costera de noche o 🏮 callejón |
+| triste | ⛵ océano con lluvia, 🚆 tren bajo la lluvia, 🐈 cuarto lofi o 🏮 callejón |
+| intensa | 🌆 ciudad con tormenta, 🚗 ruta costera a toda velocidad o 🎤 concierto |
 
 La elección se hace una vez por canción, cuando el análisis ya es fiable: de inmediato en
 modo archivo, a los ~20 segundos en Spotify. Las escenas se funden una en otra. La tecla
-`e` recorre automática y las catorce escenas.
+`e` recorre automática y las diecisiete escenas.
 
 ### Click en la escena
 
@@ -311,6 +315,9 @@ Con el mouse, un click hace que la escena responda donde lo hiciste:
 | mariposas | una bandada despega desde ahí |
 | ruta costera | cruza una bandada de gaviotas |
 | bosque | todo florece un momento y salen pétalos |
+| concierto | una lluvia de confeti |
+| callejón | una onda en el charco |
+| estanque | una onda, y los peces van hacia ahí como si les tiraran comida |
 
 ### Tarjeta de la canción
 
@@ -690,6 +697,9 @@ flowchart LR
 | `src/steady.rs` | No manda a la terminal los cambios de color que no se notan |
 | `src/coast.rs` | Escena ruta costera: auto, mar, faroles y gaviotas |
 | `src/forest.rs` | Escena bosque: árboles que crecen y florecen |
+| `src/concert.rs` | Escena concierto: pantalla LED, luces, parlantes y público |
+| `src/alley.rs` | Escena callejón: perspectiva, neón, reflejos en el suelo mojado |
+| `src/koi.rs` | Escena estanque: kois, nenúfares y ondas |
 | `src/moment.rs` | El momento del drop |
 | `src/idle.rs` | Pantalla de espera |
 | `src/poster.rs` | Póster del herbario y resumen de la semana |

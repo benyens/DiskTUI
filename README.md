@@ -332,7 +332,8 @@ toda la pantalla 60 veces por segundo. Por eso, en pausa o en la pantalla de esp
 
 Además, los cambios de color tan chicos que no se notan (el cielo que se aclara de a poco,
 un brillo que late apenas) no se mandan a la terminal: en promedio viaja menos de la mitad
-de los datos por cuadro. Las mediciones están en los tests ignorados `bench_scenes`,
+de los datos por cuadro. El panel de detalles (`d`) muestra la fila *rendimiento*: los FPS
+de ahora, cuánto de la pantalla cambia por cuadro y si anda con batería. Las mediciones están en los tests ignorados `bench_scenes`,
 `bench_terminal` y `bench_analysis` (`cargo test --release bench -- --ignored --nocapture`).
 
 ### Letras sincronizadas

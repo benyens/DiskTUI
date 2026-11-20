@@ -19,6 +19,8 @@ type Shown = (char, [u8; 3], [u8; 3]);
 pub struct Steady {
     area: Rect,
     cells: Vec<Option<Shown>>,
+    /// Fracción de celdas que cambiaron de verdad en el último cuadro.
+    changed: f32,
 }
 
 fn rgb(c: Color) -> Option<[u8; 3]> {
@@ -40,6 +42,7 @@ impl Steady {
             self.area = area;
             self.cells = vec![None; area.width as usize * area.height as usize];
         }
+        let mut changed = 0usize;
         for y in 0..area.height {
             for x in 0..area.width {
                 let cell = &mut buf[(area.x + x, area.y + y)];
@@ -54,10 +57,20 @@ impl Steady {
                         cell.fg = Color::Rgb(old_fg[0], old_fg[1], old_fg[2]);
                         cell.bg = Color::Rgb(old_bg[0], old_bg[1], old_bg[2]);
                     }
-                    _ => *slot = Some((ch, fg, bg)),
+                    Some(same) if *same == (ch, fg, bg) => {}
+                    _ => {
+                        *slot = Some((ch, fg, bg));
+                        changed += 1;
+                    }
                 }
             }
         }
+        self.changed = changed as f32 / self.cells.len().max(1) as f32;
+    }
+
+    /// Fracción de la pantalla que cambió (y se mandó) en el último cuadro.
+    pub fn changed(&self) -> f32 {
+        self.changed
     }
 }
 

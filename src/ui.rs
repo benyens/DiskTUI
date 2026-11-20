@@ -167,12 +167,14 @@ pub struct Analysis<'a> {
     pub source: String,
     /// Aviso completo de la fuente, si hay.
     pub warning: Option<String>,
+    /// Cuadros por segundo, cuánto de la pantalla cambia y si anda con batería.
+    pub perf: String,
     pub pal: &'a Palette,
     pub mode: ColorMode,
 }
 
 const PANEL_WIDTH: u16 = 46;
-const PANEL_HEIGHT: u16 = 10;
+const PANEL_HEIGHT: u16 = 11;
 /// Líneas máximas para el aviso dentro del panel.
 const PANEL_WARNING_LINES: usize = 4;
 
@@ -233,8 +235,10 @@ pub fn draw_analysis(buf: &mut Buffer, area: Rect, a: &Analysis) {
     }
     put(buf, panel, a.mode, 1, 7, "fuente", dim);
     put(buf, panel, a.mode, 13, 7, &a.source, bright);
-    put(buf, panel, a.mode, 1, 8, "corregir: 1 alegre  2 serena  3 nostálgica", dim);
-    put(buf, panel, a.mode, 1, 9, "          4 triste  5 intensa  0 auto", dim);
+    put(buf, panel, a.mode, 1, 8, "rendimiento", dim);
+    put(buf, panel, a.mode, 13, 8, &a.perf, bright);
+    put(buf, panel, a.mode, 1, 9, "corregir: 1 alegre  2 serena  3 nostálgica", dim);
+    put(buf, panel, a.mode, 1, 10, "          4 triste  5 intensa  0 auto", dim);
     for (i, line) in notes.iter().enumerate() {
         put(buf, panel, a.mode, 1, PANEL_HEIGHT + 1 + i as u16, line, a.pal.accent);
     }
@@ -676,12 +680,14 @@ mod tests {
             moment: Mood::Happy,
             source: session.label(),
             warning: session.warning().map(|w| w.detail),
+            perf: "60 FPS · cambia 12% · enchufado".into(),
             pal: &pal,
             mode: ColorMode::True,
         };
         draw_analysis(&mut buf, area, &analysis);
         let text = text_of(&buf);
         assert!(text.contains("solo la app") && text.contains("permiso"), "{text}");
+        assert!(text.contains("60 FPS"), "{text}");
     }
 
     #[test]

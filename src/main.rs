@@ -503,6 +503,9 @@ fn run(
     let mode = ColorMode::detect();
     let battery = power::Battery::watch();
     let mut steady = steady::Steady::default();
+    // Para el panel de detalles: los FPS de ahora y cuánto de la pantalla cambia (promedio).
+    let mut fps_now = args.fps;
+    let mut changed_avg = 0.0f32;
     // Segundos seguidos sin reproducir: en pausa larga se dibuja más lento.
     let mut paused_for = 0.0f32;
     let mut stage = Stage::new(seed, Garden::new(seed, args.flowers, args.petals));
@@ -936,6 +939,11 @@ fn run(
                     moment: stage.moment(),
                     source: session.label(),
                     warning: session.warning().map(|w| w.detail),
+                    perf: format!(
+                        "{fps_now} FPS · cambia {:.0}% · {}",
+                        changed_avg * 100.0,
+                        if battery.on_battery() { "con batería" } else { "enchufado" }
+                    ),
                     pal: &palette,
                     mode,
                 };
@@ -946,11 +954,13 @@ fn run(
             if std::env::var_os("DISKTUI_SIN_STEADY").is_none() {
                 steady.apply(frame.buffer_mut(), area);
             }
+            changed_avg += (steady.changed() - changed_avg) * 0.05;
         })?;
 
         // Ritmo de cuadros: el pedido, o menos en pausa y con ahorro de energía.
         paused_for = if session.playing() { 0.0 } else { paused_for + dt };
         let fps = args.energy.fps(args.fps, paused_for, idle.level() > 0.5, battery.on_battery());
+        fps_now = fps;
         let frame_time = Duration::from_secs_f64(1.0 / fps as f64);
         next_frame += frame_time;
         let now = Instant::now();

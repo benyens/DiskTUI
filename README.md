@@ -16,9 +16,9 @@ carátula.
 ![audio local](https://img.shields.io/badge/audio-100%25%20local-green)
 ![Vibecoded](https://img.shields.io/badge/vibecoded-con%20Claude-8A2BE2)
 
-<img src="docs/escenas.gif" alt="Las diecisiete escenas de DiskTUI, una tras otra" width="90%">
+<img src="docs/escenas.gif" alt="Las dieciocho escenas de DiskTUI, una tras otra" width="90%">
 
-<sub>Las diecisiete escenas, generadas desde la salida real del programa (`--demo`).</sub>
+<sub>Las dieciocho escenas, generadas desde la salida real del programa (`--demo`).</sub>
 
 **[Instalar](#instalación) · [Usar](#uso) · [Escenas](#escenas) · [Cómo entiende la canción](#cómo-entiende-la-canción) · [Vibecoded](#hecho-con-vibe-coding)**
 
@@ -40,8 +40,10 @@ carátula.
 - 🦋 **Transiciones entre canciones**: mariposas, pétalos, iris, ola o destellos.
 - 🎨 **Colores de la carátula** en todo: pétalos, velas, fuegos, medusas.
 - 🎧 **Spotify, Apple Music o archivos** (mp3, flac, wav, ogg, m4a).
-- 📸 **Para compartir**: postal PNG, GIF, y GIF vertical con título para historias.
-- 🎤 **Letras sincronizadas** (opcional) que se iluminan mientras se cantan.
+- 📸 **Para compartir**: postal PNG, GIF, y GIF vertical con título para historias. Con
+  las letras encendidas, la línea que suena va de subtítulo.
+- 🎤 **Letras sincronizadas** (opcional) que se iluminan mientras se cantan, y un **modo
+  karaoke** (`k`) con la línea en grande.
 - 🔒 **Local y sin cuentas.** El audio se analiza en tu equipo. Las únicas consultas a
   internet son la carátula en modo Spotify y, si las enciendes, las letras.
 
@@ -65,8 +67,8 @@ carátula.
 | 🚗 **Ruta costera** · un auto maneja junto al mar; el tempo pone la velocidad | 🌳 **Bosque** · brota, crece y florece durante la canción |
 | <img src="docs/concierto.png" alt="Concierto"> | <img src="docs/callejon.png" alt="Callejón"> |
 | 🎤 **Concierto** · pantalla LED, luces que barren al ritmo y un público que salta | 🏮 **Callejón** · neón, faroles y lluvia en un callejón japonés que se refleja en el suelo mojado |
-| <img src="docs/estanque.png" alt="Estanque"> | |
-| 🐟 **Estanque** · kois que nadan entre nenúfares y flores de loto | |
+| <img src="docs/estanque.png" alt="Estanque"> | <img src="docs/tormenta.png" alt="Tormenta en alta mar"> |
+| 🐟 **Estanque** · kois que nadan entre nenúfares y flores de loto | ⛈️ **Tormenta** · un barco entre olas que crecen con los graves; relámpagos en los clímax |
 
 Con la escena en *automática* (el valor por defecto), cada canción elige la suya según su
 ánimo. La tecla `e` las recorre a mano.
@@ -168,7 +170,7 @@ También se puede saltar el menú desde la línea de comandos:
 
 | Opción | Efecto |
 | --- | --- |
-| `--escena <nombre>` | `auto` (por defecto: la elige el ánimo), `jardin`, `sistema`, `oceano`, `ciudad`, `fogata`, `tren`, `fondo`, `fuegos`, `cerezos`, `lofi`, `aurora`, `mariposas`, `ruta`, `bosque`, `concierto`, `callejon` o `estanque` |
+| `--escena <nombre>` | `auto` (por defecto: la elige el ánimo), `jardin`, `sistema`, `oceano`, `ciudad`, `fogata`, `tren`, `fondo`, `fuegos`, `cerezos`, `lofi`, `aurora`, `mariposas`, `ruta`, `bosque`, `concierto`, `callejon`, `estanque` o `tormenta` |
 | `--flores <n>` | Flores del jardín, de 1 a 3. Por defecto 3 |
 | `--petalos <n>` | Pétalos de la flor principal, de 3 a 12 |
 | `--velocidad <x>` | Qué tan rápido crece la escena. `2` = el doble. Por defecto 1 |
@@ -189,13 +191,14 @@ También se puede saltar el menú desde la línea de comandos:
 
 | Tecla | Acción |
 | --- | --- |
-| `e` | Cambiar de escena: automática, jardín, sistema solar, océano, ciudad, fogata, tren, fondo del mar, fuegos artificiales, cerezos, cuarto lofi, aurora boreal, mariposas, ruta costera, bosque, concierto, callejón, estanque |
+| `e` | Cambiar de escena: automática, jardín, sistema solar, océano, ciudad, fogata, tren, fondo del mar, fuegos artificiales, cerezos, cuarto lofi, aurora boreal, mariposas, ruta costera, bosque, concierto, callejón, estanque, tormenta |
 | `←` / `→` | Retroceder / adelantar 10 segundos (archivo, Spotify, Apple Music) |
 | `g` | Grabar un GIF de 8 segundos en `~/Pictures/DiskTUI` (`g` otra vez lo corta antes) |
 | `v` | Grabar un GIF vertical (9:16) con carátula y título, para historias |
 | `c` | Mostrar u ocultar la carátula |
 | `t` | Encender o apagar la tarjeta con el título de cada canción |
 | `l` | Encender o apagar las letras sincronizadas |
+| `k` | Modo karaoke: la línea que suena en grande, al centro |
 | `f` | Marcar o desmarcar la canción como favorita |
 | `a` | Aleatorio en Spotify o Apple Music (encender o apagar) |
 | `r` | Repetir en Spotify (sí o no) o Apple Music (lista, canción, nada) |
@@ -293,11 +296,11 @@ varias escenas, cada canción se queda siempre con la misma:
 | serena | 🔥 fogata al atardecer, 🪼 fondo del mar, 🌸 cerezos, 🌌 aurora boreal, 🦋 mariposas, 🌳 bosque o 🐟 estanque |
 | nostálgica | 🪐 sistema solar, 🚆 tren nocturno, 🎆 fuegos artificiales, 🐈 cuarto lofi, 🌌 aurora boreal o 🚗 ruta costera de noche o 🏮 callejón |
 | triste | ⛵ océano con lluvia, 🚆 tren bajo la lluvia, 🐈 cuarto lofi o 🏮 callejón |
-| intensa | 🌆 ciudad con tormenta, 🚗 ruta costera a toda velocidad o 🎤 concierto |
+| intensa | 🌆 ciudad con tormenta, 🚗 ruta costera a toda velocidad, 🎤 concierto o ⛈️ tormenta en alta mar |
 
 La elección se hace una vez por canción, cuando el análisis ya es fiable: de inmediato en
 modo archivo, a los ~20 segundos en Spotify. Las escenas se funden una en otra. La tecla
-`e` recorre automática y las diecisiete escenas.
+`e` recorre automática y las dieciocho escenas.
 
 ### Click en la escena
 
@@ -320,6 +323,7 @@ Con el mouse, un click hace que la escena responda donde lo hiciste:
 | concierto | una lluvia de confeti |
 | callejón | una onda en el charco |
 | estanque | una onda, y los peces van hacia ahí como si les tiraran comida |
+| tormenta | cae un rayo ahí |
 
 ### Tarjeta de la canción
 
@@ -364,6 +368,11 @@ cuenta. Vienen apagadas porque es una consulta a internet: solo se mandan artist
 duración. Cada letra queda guardada en `letras/`, junto al herbario, y no se vuelve a pedir.
 Si una canción no tiene letra, o la quieres corregir, deja ahí un `.lrc` propio con el
 nombre `Artista - Título.lrc`.
+
+Con `k` entra el **modo karaoke**: la línea que suena aparece en grande al centro de la
+escena, con letras de píxeles que se van llenando de color mientras se canta, y la
+siguiente espera debajo en chico. Si las letras estaban apagadas, `k` las enciende. La
+letra nunca mueve la escena: solo se dibuja encima.
 
 ### Cielo según tu reloj
 
@@ -448,6 +457,9 @@ Todo queda en `~/Pictures/DiskTUI`:
 
 Si la canción termina o sales a mitad de una grabación, el GIF se guarda igual con lo
 grabado hasta ahí.
+
+Con las letras encendidas, la postal y el GIF llevan de subtítulo la línea que sonaba,
+entre comillas, en una franja oscura abajo. En el GIF el subtítulo cambia con la canción.
 
 ## Qué mueve cada cosa
 
@@ -571,6 +583,21 @@ Un velero zarpa al empezar la canción y llega al faro cuando termina.
 | Pulso | Los farolitos se mecen y laten |
 | Ánimo | Siempre de noche; con ánimos de día queda un resto de crepúsculo. La lluvia y el viento son los del jardín |
 | Carátula | Colores de los fuegos y de los farolitos |
+
+</details>
+
+<details>
+<summary><b>⛈️ Tormenta en alta mar</b></summary>
+
+| Señal | Qué hace |
+| --- | --- |
+| Graves e intensidad | La altura de las olas: con calma el mar se mece, con fuerza se levanta |
+| Tempo | Qué tan rápido avanzan las olas |
+| Pulso | Salpicaduras de espuma desde las crestas |
+| Bombo fuerte | A veces, un relámpago |
+| **Clímax** | Siempre un relámpago que ilumina todo |
+| Canción nueva | Un trueno de bienvenida |
+| Pendiente de la ola | El barco sube, baja y se inclina con ella |
 
 </details>
 
@@ -718,6 +745,8 @@ flowchart LR
 | `src/concert.rs` | Escena concierto: pantalla LED, luces, parlantes y público |
 | `src/alley.rs` | Escena callejón: perspectiva, neón, reflejos en el suelo mojado |
 | `src/koi.rs` | Escena estanque: kois, nenúfares y ondas |
+| `src/storm.rs` | Escena tormenta: barco, olas, relámpagos y faro |
+| `src/karaoke.rs` | Modo karaoke: la línea en letras grandes que se llenan al cantarse |
 | `src/sleep.rs` | Temporizador para dormir |
 | `src/summary.rs` | Resumen de lo que escuchas (pantalla y póster) |
 | `src/moment.rs` | El momento del drop |

@@ -18,8 +18,10 @@ mod fireworks;
 mod garden;
 mod herbarium;
 mod idle;
+mod karaoke;
 mod lyrics;
 mod coast;
+mod storm;
 mod koi;
 mod alley;
 mod concert;
@@ -99,7 +101,7 @@ USO
 OPCIONES
   --escena <nombre>         auto (según el ánimo), jardin, sistema, oceano, ciudad,
                             fogata, tren, fondo, fuegos, cerezos, lofi, aurora, mariposas,
-                            ruta, bosque, concierto, callejon o estanque
+                            ruta, bosque, concierto, callejon, estanque o tormenta
   --fps <n>                 Cuadros por segundo (por defecto 60)
   --petalos <n>             Pétalos de la flor principal, 3 a 12 (por defecto según la canción)
   --flores <n>              Cantidad de flores, 1 a 3 (por defecto 3)
@@ -132,6 +134,7 @@ TECLAS
   c          mostrar u ocultar la carátula
   t          encender o apagar la tarjeta con el título de cada canción
   l          encender o apagar las letras sincronizadas
+  k          karaoke: la línea que suena en letras grandes al centro
   click      cada escena responde: un fuego artificial, una mariposa, un pez, un cometa…
   ← / →      retroceder / adelantar 10 segundos (archivo, Spotify, Apple Music)
   n / p      canción siguiente / anterior (Spotify y Apple Music)
@@ -261,7 +264,7 @@ fn parse_args() -> Result<Args> {
                 let name = value("--escena")?;
                 args.scene = Some(
                     SceneChoice::parse(&name)
-                        .ok_or_else(|| anyhow::anyhow!("escena desconocida: {name} (usa auto, jardin, sistema, oceano, ciudad, fogata, tren, fondo, fuegos, cerezos, lofi, aurora, mariposas, ruta, bosque, concierto, callejon o estanque)"))?,
+                        .ok_or_else(|| anyhow::anyhow!("escena desconocida: {name} (usa auto, jardin, sistema, oceano, ciudad, fogata, tren, fondo, fuegos, cerezos, lofi, aurora, mariposas, ruta, bosque, concierto, callejon, estanque o tormenta)"))?,
                 );
             }
             "--velocidad" => {
@@ -532,6 +535,8 @@ fn run(
     // Letras: se piden al cambiar de canción; `wanted` es la que se espera.
     let lyric_fetcher = lyrics::Fetcher::new();
     let mut show_lyrics = args.lyrics;
+    // Karaoke: la letra en grande al centro (necesita las letras encendidas).
+    let mut karaoke = false;
     let mut lyric_wanted: Option<lyrics::Request> = None;
     let mut lyric_text: Option<lyrics::Lyrics> = None;
     // Al encenderlas con `l` se avisa si la canción no tiene letra.
@@ -633,6 +638,21 @@ fn run(
                             notice = Some(("aleatorio y repetir son para Spotify y Apple Music".to_string(), Instant::now()));
                         }
                     }
+                    KeyCode::Char('k') => {
+                        karaoke = !karaoke;
+                        let text = if !karaoke {
+                            "karaoke: apagado"
+                        } else if show_lyrics {
+                            "karaoke: encendido"
+                        } else {
+                            // Sin letras no hay karaoke: se encienden también.
+                            show_lyrics = true;
+                            lyric_wanted = None;
+                            lyric_tell = true;
+                            "karaoke: encendido · buscando la letra…"
+                        };
+                        notice = Some((text.to_string(), Instant::now()));
+                    }
                     KeyCode::Char('l') => {
                         show_lyrics = !show_lyrics;
                         lyric_wanted = None;
@@ -713,7 +733,11 @@ fn run(
                     KeyCode::Char('n') => session.skip(1),
                     KeyCode::Char('p') => session.skip(-1),
                     KeyCode::Char('s') => {
-                        let text = match postcard::save(&canvas, &current.artist, &current.title) {
+                        // Con letras (y sin karaoke, que ya queda dibujado), la línea va de subtítulo.
+                        let quote = lyric_text.as_ref().filter(|_| show_lyrics && !karaoke).and_then(|l| {
+                            l.index_at(session.position().as_secs_f32() + 0.25).map(|i| l.lines[i].text.clone())
+                        });
+                        let text = match postcard::save(&canvas, &current.artist, &current.title, quote.as_deref()) {
                             Ok(_) => format!("postal guardada en {}", paths::pictures_label()),
                             Err(e) => format!("no se pudo guardar la postal: {e:#}"),
                         };
@@ -897,21 +921,6 @@ fn run(
         if show_cover && let Some(cover) = &cover {
             cover.draw(&mut canvas, render::SOIL_ROWS * 2 + 8, palette.accent);
         }
-        // El GIF vertical se dibuja aparte, en su propio lienzo de 9:16.
-        let vertical = recording.as_ref().is_some_and(postcard::Recording::is_vertical);
-        if vertical {
-            portrait.resize(postcard::VERTICAL.0, postcard::VERTICAL.1);
-            stage.draw(active, &mut portrait, &palette);
-            drop_moment.apply(&mut portrait, palette.accent.mix(color::Rgb::WHITE, 0.6));
-        }
-        let shot = if vertical { &portrait } else { &canvas };
-        if recording.as_mut().is_some_and(|rec| rec.capture(shot, dt)) {
-            gif_job = recording.take().map(postcard::Recording::finish);
-            notice = Some(("guardando el GIF…".to_string(), Instant::now()));
-        }
-        // Tarjeta de canción (después de grabar: los GIF quedan limpios).
-        card_clock = card_clock.map(|t| t + dt).filter(|t| *t < ui::CARD_SECONDS);
-        let card_alpha = if show_card && !args.mini { card_clock.map(ui::card_alpha).unwrap_or(0.0) } else { 0.0 };
         // La letra que suena ahora (un poco adelantada: se lee antes de cantarse).
         let lyric_now = lyric_text.as_ref().filter(|_| show_lyrics && !args.mini).map(|l| {
             let t = session.position().as_secs_f32() + 0.25;
@@ -922,7 +931,30 @@ fn run(
                 None => ("", next(0), 0.0),
             }
         });
+        // El GIF vertical se dibuja aparte, en su propio lienzo de 9:16.
+        let vertical = recording.as_ref().is_some_and(postcard::Recording::is_vertical);
+        if vertical {
+            portrait.resize(postcard::VERTICAL.0, postcard::VERTICAL.1);
+            stage.draw(active, &mut portrait, &palette);
+            drop_moment.apply(&mut portrait, palette.accent.mix(color::Rgb::WHITE, 0.6));
+        }
+        let shot = if vertical { &portrait } else { &canvas };
+        // Con letras encendidas, el GIF lleva la línea que suena como subtítulo.
+        let quote = lyric_now.map(|(line, _, _)| line).filter(|l| !l.is_empty());
+        if recording.as_mut().is_some_and(|rec| rec.capture(shot, dt, quote)) {
+            gif_job = recording.take().map(postcard::Recording::finish);
+            notice = Some(("guardando el GIF…".to_string(), Instant::now()));
+        }
+        // Tarjeta de canción (después de grabar: los GIF quedan limpios).
+        card_clock = card_clock.map(|t| t + dt).filter(|t| *t < ui::CARD_SECONDS);
+        let card_alpha = if show_card && !args.mini { card_clock.map(ui::card_alpha).unwrap_or(0.0) } else { 0.0 };
+        // Karaoke: la línea actual en grande al centro; la siguiente va debajo, chica.
+        let karaoke_below = match lyric_now {
+            Some((current_line, _, progress)) if karaoke && !current_line.is_empty() => karaoke::draw(&mut canvas, current_line, progress, &palette),
+            _ => None,
+        };
         if let Some((current_line, next_line, _)) = lyric_now
+            && karaoke_below.is_none()
             && !(current_line.is_empty() && next_line.is_empty())
             && let Some((top, bottom)) = ui::lyrics_band(canvas.h as u16, active.lyrics_on_top())
         {
@@ -950,7 +982,9 @@ fn run(
                 let card = ui::Card { title: &current.title, artist: &current.artist, alpha: card_alpha, pal: &palette, mode };
                 ui::draw_card(frame.buffer_mut(), plant_area, &card);
             }
-            if let Some((current_line, next_line, progress)) = lyric_now {
+            if let (Some(row), Some((_, next_line, _))) = (karaoke_below, lyric_now) {
+                ui::draw_centered_dim(frame.buffer_mut(), plant_area, row, next_line, mode);
+            } else if let Some((current_line, next_line, progress)) = lyric_now {
                 let line = ui::LyricsLine { top: active.lyrics_on_top(), current: current_line, next: next_line, progress, pal: &palette, mode };
                 ui::draw_lyrics(frame.buffer_mut(), plant_area, &line);
             }

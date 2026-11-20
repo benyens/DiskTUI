@@ -6,7 +6,7 @@ use image::RgbImage;
 
 use crate::color::Rgb;
 
-fn glyph(c: char) -> [u8; 8] {
+pub fn glyph(c: char) -> [u8; 8] {
     BASIC_FONTS.get(c).or_else(|| LATIN_FONTS.get(c)).or_else(|| BASIC_FONTS.get(fallback(c))).unwrap_or([0; 8])
 }
 

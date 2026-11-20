@@ -31,11 +31,49 @@ pub fn target(artist: &str, title: &str, extension: &str) -> Result<PathBuf> {
     Ok(dir.join(format!("{} {stamp}.{extension}", file_stem(artist, title))))
 }
 
-/// Guarda el lienzo en `~/Pictures/DiskTUI/` y devuelve la ruta.
-pub fn save(canvas: &Canvas, artist: &str, title: &str) -> Result<PathBuf> {
+/// Guarda el lienzo en `~/Pictures/DiskTUI/` y devuelve la ruta. Con `quote` (la línea de
+/// la letra que sonaba), la lleva abajo como subtítulo.
+pub fn save(canvas: &Canvas, artist: &str, title: &str, quote: Option<&str>) -> Result<PathBuf> {
     let path = target(artist, title, "png")?;
-    canvas.to_image().save(&path).with_context(|| format!("no se pudo guardar {}", path.display()))?;
+    let mut img = canvas.to_image();
+    if let Some(q) = quote {
+        subtitle(&mut img, q);
+    }
+    img.save(&path).with_context(|| format!("no se pudo guardar {}", path.display()))?;
     Ok(path)
+}
+
+/// Escribe `line` abajo de la imagen, como subtítulo de película: una franja oscura y el
+/// texto centrado, en uno o dos renglones (más chico si no cabe).
+pub fn subtitle(img: &mut image::RgbImage, line: &str) {
+    let line = line.trim();
+    if line.is_empty() || img.width() < 64 || img.height() < 48 {
+        return;
+    }
+    let (w, h) = img.dimensions();
+    // Letra doble si cabe en dos renglones; si no, normal.
+    let (scale, lines) = [2u32, 1]
+        .into_iter()
+        .map(|s| (s, crate::karaoke::wrap(line, (w.saturating_sub(24) / (8 * s)) as usize)))
+        .find(|(_, l)| l.len() <= 2)
+        .unwrap_or_else(|| (1, crate::karaoke::wrap(line, (w.saturating_sub(24) / 8) as usize).into_iter().take(2).collect()));
+    let line_h = 12 * scale;
+    let block = lines.len() as u32 * line_h;
+    let top = h.saturating_sub(block + 14 * scale);
+    // Franja que oscurece de a poco hacia arriba.
+    for y in top.saturating_sub(10)..h {
+        let k = if y < top { (y + 10 - top) as f32 / 10.0 } else { 1.0 } * 0.6;
+        for x in 0..w {
+            let p = img.get_pixel_mut(x, y);
+            for c in p.0.iter_mut() {
+                *c = (*c as f32 * (1.0 - k)) as u8;
+            }
+        }
+    }
+    for (i, l) in lines.iter().enumerate() {
+        let quoted = if lines.len() == 1 { format!("\u{ab} {l} \u{bb}") } else { l.clone() };
+        text::draw_centered(img, w as i64 / 2, (top + 6 + i as u32 * line_h) as i64, &quoted, Rgb(1.0, 0.97, 0.92), scale);
+    }
 }
 
 /// Duración máxima de un GIF y cuadros por segundo.
@@ -114,11 +152,15 @@ impl Recording {
     }
 
     /// Toma un cuadro si ya toca. Devuelve `true` cuando la grabación está completa.
-    pub fn capture(&mut self, canvas: &Canvas, dt: f32) -> bool {
+    /// `quote`: la línea de la letra que suena, que va de subtítulo.
+    pub fn capture(&mut self, canvas: &Canvas, dt: f32, quote: Option<&str>) -> bool {
         self.clock += dt;
         if self.clock >= 1.0 / GIF_FPS {
             self.clock -= 1.0 / GIF_FPS;
             let mut full = canvas.to_image();
+            if let Some(q) = quote {
+                subtitle(&mut full, q);
+            }
             if let Some(caption) = &self.caption {
                 full = caption.compose(&full, &self.artist, &self.title);
             }
@@ -168,6 +210,21 @@ mod tests {
     use super::*;
 
     #[test]
+    fn subtitles_darken_the_bottom_and_write_the_line() {
+        let mut img = image::RgbImage::from_pixel(400, 200, image::Rgb([200, 200, 200]));
+        subtitle(&mut img, "y el disco gira lento mientras pienso en ti");
+        // Arriba queda igual; abajo, más oscuro, con letras claras encima.
+        assert_eq!(img.get_pixel(10, 10).0, [200, 200, 200]);
+        let bottom: Vec<_> = (150..200).flat_map(|y| (0..400).map(move |x| (x, y))).map(|(x, y)| img.get_pixel(x, y).0[0]).collect();
+        assert!(bottom.iter().any(|&v| v < 100));
+        assert!(bottom.iter().any(|&v| v > 230));
+        // Nada que hacer con una línea vacía o una imagen mínima.
+        let mut tiny = image::RgbImage::new(10, 10);
+        subtitle(&mut tiny, "hola");
+        assert!(tiny.pixels().all(|p| p.0 == [0, 0, 0]));
+    }
+
+    #[test]
     fn file_names_are_safe() {
         assert_eq!(file_stem("AC/DC", "T.N.T."), "AC_DC - T.N.T");
         assert_eq!(file_stem("", "Canción: ¿qué?"), "Canción_ _qué_");
@@ -184,7 +241,7 @@ mod tests {
         let mut steps = 0;
         while !done {
             canvas.clear(|x, _| crate::color::Rgb(x as f32 / 20.0, steps as f32 / 500.0, 0.3));
-            done = recording.capture(&canvas, 1.0 / 60.0);
+            done = recording.capture(&canvas, 1.0 / 60.0, None);
             steps += 1;
             assert!(steps < 2000, "la grabación no termina");
         }
@@ -206,8 +263,8 @@ mod tests {
     #[test]
     fn recording_stops_if_the_window_changes_size() {
         let mut recording = Recording::new("", "x");
-        assert!(!recording.capture(&Canvas::new(20, 6), 0.2));
-        assert!(recording.capture(&Canvas::new(30, 6), 0.2));
+        assert!(!recording.capture(&Canvas::new(20, 6), 0.2, None));
+        assert!(recording.capture(&Canvas::new(30, 6), 0.2, None));
         assert_eq!(recording.frames.len(), 1);
     }
 
@@ -216,7 +273,7 @@ mod tests {
         let mut canvas = Canvas::new(VERTICAL.0, VERTICAL.1);
         canvas.clear(|_, _| Rgb(0.2, 0.3, 0.5));
         let mut recording = Recording::vertical("Banda", "Una canción", Caption::new(None, &Palette::default()));
-        recording.capture(&canvas, 1.0);
+        recording.capture(&canvas, 1.0, None);
         let frame = &recording.frames[0];
         assert_eq!(frame.width() * 16, frame.height() * 9, "{}x{}", frame.width(), frame.height());
         // La franja de abajo no es la escena: tiene el fondo del pie y texto.

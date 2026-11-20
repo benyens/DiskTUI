@@ -357,6 +357,16 @@ pub fn draw_lyrics(buf: &mut Buffer, area: Rect, line: &LyricsLine) {
     }
 }
 
+/// Una línea tenue centrada en la fila `row` (la que viene, debajo del karaoke).
+pub fn draw_centered_dim(buf: &mut Buffer, area: Rect, row: u16, text: &str, mode: ColorMode) {
+    if row >= area.height {
+        return;
+    }
+    let text = text_fit(text, (area.width as usize).saturating_sub(6));
+    let x = (area.width as usize).saturating_sub(text.chars().count()) / 2;
+    put(buf, area, mode, x, row, &text, Rgb::WHITE.scale(0.40));
+}
+
 fn text_fit(text: &str, width: usize) -> String {
     if text.chars().count() <= width {
         text.to_string()

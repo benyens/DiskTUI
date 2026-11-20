@@ -16,6 +16,7 @@ use crate::ocean::Ocean;
 use crate::palette::Palette;
 use crate::reef::Reef;
 use crate::coast::Coast;
+use crate::storm::Storm;
 use crate::koi::Pond;
 use crate::alley::Alley;
 use crate::concert::Concert;
@@ -39,6 +40,7 @@ pub struct Stage {
     meadow: Meadow,
     coast: Coast,
     forest: Forest,
+    storm: Storm,
     koi: Pond,
     alley: Alley,
     concert: Concert,
@@ -62,6 +64,7 @@ impl Stage {
             meadow: Meadow::new(seed),
             coast: Coast::new(seed),
             forest: Forest::new(seed),
+            storm: Storm::new(seed),
             koi: Pond::new(seed),
             alley: Alley::new(seed),
             concert: Concert::new(seed),
@@ -102,7 +105,7 @@ impl Stage {
     }
 
     /// El cielo compartido de cada escena que lo tiene.
-    fn sceneries(&mut self) -> [&mut Scenery; 16] {
+    fn sceneries(&mut self) -> [&mut Scenery; 17] {
         [
             &mut self.garden.scenery,
             &mut self.ocean.scenery,
@@ -120,10 +123,11 @@ impl Stage {
             &mut self.concert.scenery,
             &mut self.alley.scenery,
             &mut self.koi.scenery,
+            &mut self.storm.scenery,
         ]
     }
 
-    fn all(&mut self) -> [&mut dyn Scene; 17] {
+    fn all(&mut self) -> [&mut dyn Scene; 18] {
         [
             &mut self.garden,
             &mut self.cosmos,
@@ -142,6 +146,7 @@ impl Stage {
             &mut self.concert,
             &mut self.alley,
             &mut self.koi,
+            &mut self.storm,
         ]
     }
 
@@ -177,6 +182,7 @@ impl Stage {
             SceneKind::Meadow => &mut self.meadow,
             SceneKind::Coast => &mut self.coast,
             SceneKind::Forest => &mut self.forest,
+            SceneKind::Storm => &mut self.storm,
             SceneKind::Pond => &mut self.koi,
             SceneKind::Alley => &mut self.alley,
             SceneKind::Concert => &mut self.concert,
@@ -200,6 +206,7 @@ impl Stage {
             SceneKind::Meadow => self.meadow.draw(canvas, pal),
             SceneKind::Coast => self.coast.draw(canvas, pal),
             SceneKind::Forest => self.forest.draw(canvas, pal),
+            SceneKind::Storm => self.storm.draw(canvas, pal),
             SceneKind::Pond => self.koi.draw(canvas, pal),
             SceneKind::Alley => self.alley.draw(canvas, pal),
             SceneKind::Concert => self.concert.draw(canvas, pal),

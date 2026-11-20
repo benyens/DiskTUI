@@ -16,9 +16,9 @@ carátula.
 ![audio local](https://img.shields.io/badge/audio-100%25%20local-green)
 ![Vibecoded](https://img.shields.io/badge/vibecoded-con%20Claude-8A2BE2)
 
-<img src="docs/escenas.gif" alt="Las dieciocho escenas de DiskTUI, una tras otra" width="90%">
+<img src="docs/escenas.gif" alt="Las veinte escenas de DiskTUI, una tras otra" width="90%">
 
-<sub>Las dieciocho escenas, generadas desde la salida real del programa (`--demo`).</sub>
+<sub>Las veinte escenas, generadas desde la salida real del programa (`--demo`).</sub>
 
 **[Instalar](#instalación) · [Usar](#uso) · [Escenas](#escenas) · [Cómo entiende la canción](#cómo-entiende-la-canción) · [Vibecoded](#hecho-con-vibe-coding)**
 
@@ -69,6 +69,8 @@ carátula.
 | 🎤 **Concierto** · pantalla LED, luces que barren al ritmo y un público que salta | 🏮 **Callejón** · neón, faroles y lluvia en un callejón japonés que se refleja en el suelo mojado |
 | <img src="docs/estanque.png" alt="Estanque"> | <img src="docs/tormenta.png" alt="Tormenta en alta mar"> |
 | 🐟 **Estanque** · kois que nadan entre nenúfares y flores de loto | ⛈️ **Tormenta** · un barco entre olas que crecen con los graves; relámpagos en los clímax |
+| <img src="docs/nieve.png" alt="Pueblo nevado"> | <img src="docs/globos.png" alt="Globos aerostáticos"> |
+| 🏘️ **Pueblo nevado** · las ventanas se encienden durante la canción; en el clímax suena la campana | 🎈 **Globos** · globos aerostáticos sobre un valle; encienden el quemador al pulso |
 
 Con la escena en *automática* (el valor por defecto), cada canción elige la suya según su
 ánimo. La tecla `e` las recorre a mano.
@@ -170,7 +172,7 @@ También se puede saltar el menú desde la línea de comandos:
 
 | Opción | Efecto |
 | --- | --- |
-| `--escena <nombre>` | `auto` (por defecto: la elige el ánimo), `jardin`, `sistema`, `oceano`, `ciudad`, `fogata`, `tren`, `fondo`, `fuegos`, `cerezos`, `lofi`, `aurora`, `mariposas`, `ruta`, `bosque`, `concierto`, `callejon`, `estanque` o `tormenta` |
+| `--escena <nombre>` | `auto` (por defecto: la elige el ánimo), `jardin`, `sistema`, `oceano`, `ciudad`, `fogata`, `tren`, `fondo`, `fuegos`, `cerezos`, `lofi`, `aurora`, `mariposas`, `ruta`, `bosque`, `concierto`, `callejon`, `estanque`, `tormenta`, `nieve` o `globos` |
 | `--flores <n>` | Flores del jardín, de 1 a 3. Por defecto 3 |
 | `--petalos <n>` | Pétalos de la flor principal, de 3 a 12 |
 | `--velocidad <x>` | Qué tan rápido crece la escena. `2` = el doble. Por defecto 1 |
@@ -191,7 +193,7 @@ También se puede saltar el menú desde la línea de comandos:
 
 | Tecla | Acción |
 | --- | --- |
-| `e` | Cambiar de escena: automática, jardín, sistema solar, océano, ciudad, fogata, tren, fondo del mar, fuegos artificiales, cerezos, cuarto lofi, aurora boreal, mariposas, ruta costera, bosque, concierto, callejón, estanque, tormenta |
+| `e` | Cambiar de escena: automática, jardín, sistema solar, océano, ciudad, fogata, tren, fondo del mar, fuegos artificiales, cerezos, cuarto lofi, aurora boreal, mariposas, ruta costera, bosque, concierto, callejón, estanque, tormenta, pueblo nevado, globos |
 | `←` / `→` | Retroceder / adelantar 10 segundos (archivo, Spotify, Apple Music) |
 | `g` | Grabar un GIF de 8 segundos en `~/Pictures/DiskTUI` (`g` otra vez lo corta antes) |
 | `v` | Grabar un GIF vertical (9:16) con carátula y título, para historias |
@@ -292,15 +294,15 @@ varias escenas, cada canción se queda siempre con la misma:
 
 | Ánimo | Escena |
 | --- | --- |
-| alegre | 🌼 jardín al sol, 🎆 fuegos artificiales, 🌸 cerezos, 🦋 mariposas, 🚗 ruta costera, 🌳 bosque, 🐟 estanque o 🎤 concierto |
-| serena | 🔥 fogata al atardecer, 🪼 fondo del mar, 🌸 cerezos, 🌌 aurora boreal, 🦋 mariposas, 🌳 bosque o 🐟 estanque |
-| nostálgica | 🪐 sistema solar, 🚆 tren nocturno, 🎆 fuegos artificiales, 🐈 cuarto lofi, 🌌 aurora boreal o 🚗 ruta costera de noche o 🏮 callejón |
-| triste | ⛵ océano con lluvia, 🚆 tren bajo la lluvia, 🐈 cuarto lofi o 🏮 callejón |
+| alegre | 🌼 jardín al sol, 🎆 fuegos artificiales, 🌸 cerezos, 🦋 mariposas, 🚗 ruta costera, 🌳 bosque, 🐟 estanque, 🎤 concierto o 🎈 globos |
+| serena | 🔥 fogata al atardecer, 🪼 fondo del mar, 🌸 cerezos, 🌌 aurora boreal, 🦋 mariposas, 🌳 bosque, 🐟 estanque, 🏘️ pueblo nevado o 🎈 globos |
+| nostálgica | 🪐 sistema solar, 🚆 tren nocturno, 🎆 fuegos artificiales, 🐈 cuarto lofi, 🌌 aurora boreal, 🚗 ruta costera de noche, 🏮 callejón o 🏘️ pueblo nevado |
+| triste | ⛵ océano con lluvia, 🚆 tren bajo la lluvia, 🐈 cuarto lofi, 🏮 callejón o 🏘️ pueblo nevado |
 | intensa | 🌆 ciudad con tormenta, 🚗 ruta costera a toda velocidad, 🎤 concierto o ⛈️ tormenta en alta mar |
 
 La elección se hace una vez por canción, cuando el análisis ya es fiable: de inmediato en
 modo archivo, a los ~20 segundos en Spotify. Las escenas se funden una en otra. La tecla
-`e` recorre automática y las dieciocho escenas.
+`e` recorre automática y las veinte escenas.
 
 ### Click en la escena
 
@@ -324,6 +326,8 @@ Con el mouse, un click hace que la escena responda donde lo hiciste:
 | callejón | una onda en el charco |
 | estanque | una onda, y los peces van hacia ahí como si les tiraran comida |
 | tormenta | cae un rayo ahí |
+| pueblo nevado | se enciende la casa entera y se levanta un remolino de nieve |
+| globos | despega un globo nuevo desde ahí |
 
 ### Tarjeta de la canción
 
@@ -601,6 +605,33 @@ Un velero zarpa al empezar la canción y llega al faro cuando termina.
 
 </details>
 
+<details>
+<summary><b>🏘️ Pueblo nevado</b></summary>
+
+| Señal | Qué hace |
+| --- | --- |
+| Avance de la canción | Se encienden cada vez más ventanas, y la nieve se junta en techos y suelo |
+| Pulso | Alguna ventana titila |
+| Intensidad | Cae más nieve |
+| **Clímax** | Suena la campana: brilla el campanario y salen ondas |
+| Volumen | Las ventanas y los faroles brillan un poco más |
+| Viento | Hacia dónde va el humo de las chimeneas y la nieve |
+
+</details>
+
+<details>
+<summary><b>🎈 Globos</b></summary>
+
+| Señal | Qué hace |
+| --- | --- |
+| Pulso | Un globo enciende el quemador y sube un poco |
+| **Clímax** | Encienden todos a la vez |
+| Avance de la canción | Todos van ganando altura |
+| Viento | Los lleva de lado; al salir por un borde vuelven por el otro |
+| Carátula | Los colores de dos de los globos |
+
+</details>
+
 ## Cómo detecta los clímax
 
 Las tres bandas se normalizan cuadro a cuadro, así que por sí solas no distinguen un verso
@@ -746,6 +777,8 @@ flowchart LR
 | `src/alley.rs` | Escena callejón: perspectiva, neón, reflejos en el suelo mojado |
 | `src/koi.rs` | Escena estanque: kois, nenúfares y ondas |
 | `src/storm.rs` | Escena tormenta: barco, olas, relámpagos y faro |
+| `src/snow.rs` | Escena pueblo nevado: casas, iglesia, nieve y humo |
+| `src/balloons.rs` | Escena globos: globos aerostáticos sobre un valle de cultivos |
 | `src/karaoke.rs` | Modo karaoke: la línea en letras grandes que se llenan al cantarse |
 | `src/sleep.rs` | Temporizador para dormir |
 | `src/summary.rs` | Resumen de lo que escuchas (pantalla y póster) |

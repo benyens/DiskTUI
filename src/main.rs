@@ -21,6 +21,8 @@ mod idle;
 mod karaoke;
 mod lyrics;
 mod coast;
+mod balloons;
+mod snow;
 mod storm;
 mod koi;
 mod alley;
@@ -101,7 +103,8 @@ USO
 OPCIONES
   --escena <nombre>         auto (según el ánimo), jardin, sistema, oceano, ciudad,
                             fogata, tren, fondo, fuegos, cerezos, lofi, aurora, mariposas,
-                            ruta, bosque, concierto, callejon, estanque o tormenta
+                            ruta, bosque, concierto, callejon, estanque, tormenta,
+                            nieve o globos
   --fps <n>                 Cuadros por segundo (por defecto 60)
   --petalos <n>             Pétalos de la flor principal, 3 a 12 (por defecto según la canción)
   --flores <n>              Cantidad de flores, 1 a 3 (por defecto 3)
@@ -264,7 +267,7 @@ fn parse_args() -> Result<Args> {
                 let name = value("--escena")?;
                 args.scene = Some(
                     SceneChoice::parse(&name)
-                        .ok_or_else(|| anyhow::anyhow!("escena desconocida: {name} (usa auto, jardin, sistema, oceano, ciudad, fogata, tren, fondo, fuegos, cerezos, lofi, aurora, mariposas, ruta, bosque, concierto, callejon, estanque o tormenta)"))?,
+                        .ok_or_else(|| anyhow::anyhow!("escena desconocida: {name} (usa auto, jardin, sistema, oceano, ciudad, fogata, tren, fondo, fuegos, cerezos, lofi, aurora, mariposas, ruta, bosque, concierto, callejon, estanque, tormenta, nieve o globos)"))?,
                 );
             }
             "--velocidad" => {

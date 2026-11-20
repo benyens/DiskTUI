@@ -16,6 +16,8 @@ use crate::ocean::Ocean;
 use crate::palette::Palette;
 use crate::reef::Reef;
 use crate::coast::Coast;
+use crate::balloons::Balloons;
+use crate::snow::Village;
 use crate::storm::Storm;
 use crate::koi::Pond;
 use crate::alley::Alley;
@@ -40,6 +42,8 @@ pub struct Stage {
     meadow: Meadow,
     coast: Coast,
     forest: Forest,
+    balloons: Balloons,
+    snow: Village,
     storm: Storm,
     koi: Pond,
     alley: Alley,
@@ -64,6 +68,8 @@ impl Stage {
             meadow: Meadow::new(seed),
             coast: Coast::new(seed),
             forest: Forest::new(seed),
+            balloons: Balloons::new(seed),
+            snow: Village::new(seed),
             storm: Storm::new(seed),
             koi: Pond::new(seed),
             alley: Alley::new(seed),
@@ -105,7 +111,7 @@ impl Stage {
     }
 
     /// El cielo compartido de cada escena que lo tiene.
-    fn sceneries(&mut self) -> [&mut Scenery; 17] {
+    fn sceneries(&mut self) -> [&mut Scenery; 19] {
         [
             &mut self.garden.scenery,
             &mut self.ocean.scenery,
@@ -124,10 +130,12 @@ impl Stage {
             &mut self.alley.scenery,
             &mut self.koi.scenery,
             &mut self.storm.scenery,
+            &mut self.snow.scenery,
+            &mut self.balloons.scenery,
         ]
     }
 
-    fn all(&mut self) -> [&mut dyn Scene; 18] {
+    fn all(&mut self) -> [&mut dyn Scene; 20] {
         [
             &mut self.garden,
             &mut self.cosmos,
@@ -147,6 +155,8 @@ impl Stage {
             &mut self.alley,
             &mut self.koi,
             &mut self.storm,
+            &mut self.snow,
+            &mut self.balloons,
         ]
     }
 
@@ -182,6 +192,8 @@ impl Stage {
             SceneKind::Meadow => &mut self.meadow,
             SceneKind::Coast => &mut self.coast,
             SceneKind::Forest => &mut self.forest,
+            SceneKind::Balloons => &mut self.balloons,
+            SceneKind::Village => &mut self.snow,
             SceneKind::Storm => &mut self.storm,
             SceneKind::Pond => &mut self.koi,
             SceneKind::Alley => &mut self.alley,
@@ -206,6 +218,8 @@ impl Stage {
             SceneKind::Meadow => self.meadow.draw(canvas, pal),
             SceneKind::Coast => self.coast.draw(canvas, pal),
             SceneKind::Forest => self.forest.draw(canvas, pal),
+            SceneKind::Balloons => self.balloons.draw(canvas, pal),
+            SceneKind::Village => self.snow.draw(canvas, pal),
             SceneKind::Storm => self.storm.draw(canvas, pal),
             SceneKind::Pond => self.koi.draw(canvas, pal),
             SceneKind::Alley => self.alley.draw(canvas, pal),

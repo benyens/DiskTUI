@@ -289,16 +289,21 @@ impl Scene for Storm {
             let u = x as f32 / w;
             let top = self.surface(u, aspect) * h;
             let slope = (self.surface(u + 1.0 / w, aspect) - self.surface(u, aspect)) * h;
+            // Coordenada que viaja con la ola: las motas de espuma van pegadas a ella en vez
+            // de parpadear al azar (parpadear obliga a redibujar la terminal entera).
+            let along = ((u * aspect * 3.1 + self.phase) * 24.0) as i32 as u32;
             for y in top.ceil() as i32..h as i32 {
-                let depth = ((y as f32 - top) / (h - top).max(1.0)).clamp(0.0, 1.0);
+                // La profundidad se mide desde el nivel medio y no desde la ola: así el agua de abajo
+                // no cambia de color en cada cuadro y la terminal tiene menos que redibujar.
+                let depth = ((y as f32 - (SEA - 0.12) * h) / (h * (1.12 - SEA))).clamp(0.0, 1.0);
                 let mut c = face.mix(deep, depth.powf(0.5)).add(Rgb(0.8, 0.85, 1.0), 0.35 * flash * (1.0 - depth));
                 // Espuma: en la cresta, más mientras más empinada y alta está la ola.
                 let foam = smoothstep(0.15, 0.6, -slope) * (1.0 - (y as f32 - top) / 3.0).max(0.0);
-                if foam > 0.0 || (y as f32 - top) < 1.0 && self.swell > 0.5 && hash(x as u32 ^ self.seed, (t * 10.0) as u32) < 0.3 {
+                if foam > 0.0 || (y as f32 - top) < 1.0 && self.swell > 0.5 && hash(along ^ self.seed, 7) < 0.3 {
                     c = c.mix(Rgb(0.85, 0.9, 0.95), foam.max(0.4) * (0.5 + 0.5 * self.swell));
                 }
                 // Vetas de espuma arrastradas sobre la cara de la ola.
-                if hash((x as f32 + t * 6.0) as u32 ^ self.seed, y as u32) < 0.03 * self.swell * (1.0 - depth) {
+                if hash(along ^ self.seed, y as u32) < 0.025 * self.swell * (1.0 - depth) {
                     c = c.add(Rgb::WHITE, 0.15);
                 }
                 canvas.solid(x, y, c);
@@ -313,7 +318,7 @@ impl Scene for Storm {
             canvas.paint((d.x * w) as i32, (d.y * h) as i32, Rgb(0.85, 0.9, 0.95), a);
         }
         // Lluvia inclinada por el viento: más fuerte con la tormenta.
-        let drops = (w * h * (0.008 + 0.012 * self.swell)) as u32;
+        let drops = (w * h * (0.004 + 0.007 * self.swell)) as u32;
         let slant = 1 + (self.swell * 2.0) as i32;
         for i in 0..drops {
             let speed = 1.5 + hash(i, 2);

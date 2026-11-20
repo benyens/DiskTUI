@@ -16,9 +16,9 @@ carátula.
 ![audio local](https://img.shields.io/badge/audio-100%25%20local-green)
 ![Vibecoded](https://img.shields.io/badge/vibecoded-con%20Claude-8A2BE2)
 
-<img src="docs/escenas.gif" alt="Las doce escenas de DiskTUI, una tras otra" width="90%">
+<img src="docs/escenas.gif" alt="Las catorce escenas de DiskTUI, una tras otra" width="90%">
 
-<sub>Las doce escenas, generadas desde la salida real del programa (`--demo`).</sub>
+<sub>Las catorce escenas, generadas desde la salida real del programa (`--demo`).</sub>
 
 **[Instalar](#instalación) · [Usar](#uso) · [Escenas](#escenas) · [Cómo entiende la canción](#cómo-entiende-la-canción) · [Vibecoded](#hecho-con-vibe-coding)**
 
@@ -61,6 +61,8 @@ carátula.
 | 🌸 **Cerezos** · un sakura florece y suelta pétalos con cada golpe | 🐈 **Cuarto lofi** · lluvia en la ventana, un gato al compás y un tocadiscos con la carátula de lo que suena |
 | <img src="docs/aurora.png" alt="Aurora boreal"> | <img src="docs/mariposas.png" alt="Mariposas"> |
 | 🌌 **Aurora boreal** · cortinas de luz sobre un lago helado | 🦋 **Mariposas** · una migración que cruza la pradera en diagonal hacia arriba |
+| <img src="docs/ruta.png" alt="Ruta costera"> | <img src="docs/bosque.png" alt="Bosque"> |
+| 🚗 **Ruta costera** · un auto maneja junto al mar; el tempo pone la velocidad | 🌳 **Bosque** · brota, crece y florece durante la canción |
 
 Con la escena en *automática* (el valor por defecto), cada canción elige la suya según su
 ánimo. La tecla `e` las recorre a mano.
@@ -173,6 +175,7 @@ También se puede saltar el menú desde la línea de comandos:
 | `--sin-hud` | Arranca sin el HUD |
 | `--sin-tarjeta` | No muestra la tarjeta con el título al empezar cada canción |
 | `--letras` | Letras sincronizadas desde LRCLIB |
+| `--ahorro` | Gasta menos batería: 30 FPS como máximo |
 | `--hora-real` | El cielo sigue la hora de tu reloj |
 | `--hora <HH:MM>` | Fija la hora del cielo, para probar |
 | `--transicion <nombre>` | Entre canciones: `auto` (una distinta cada vez), `fundido`, `mariposas`, `petalos`, `iris`, `ola` o `destellos` |
@@ -189,6 +192,8 @@ También se puede saltar el menú desde la línea de comandos:
 | `t` | Encender o apagar la tarjeta con el título de cada canción |
 | `l` | Encender o apagar las letras sincronizadas |
 | `f` | Marcar o desmarcar la canción como favorita |
+| `a` | Aleatorio en Spotify o Apple Music (encender o apagar) |
+| `r` | Repetir en Spotify (sí o no) o Apple Music (lista, canción, nada) |
 | click | La escena responde donde hiciste click |
 | `d` | Panel de detalles: qué entendió de la canción, la fuente de audio y los avisos completos. Con el panel abierto, `1`–`5` corrigen el ánimo y `0` lo devuelve a automático |
 | `n` / `p` | Canción siguiente / anterior (Spotify y Apple Music) |
@@ -278,15 +283,15 @@ varias escenas, cada canción se queda siempre con la misma:
 
 | Ánimo | Escena |
 | --- | --- |
-| alegre | 🌼 jardín al sol, 🎆 fuegos artificiales, 🌸 cerezos o 🦋 mariposas |
-| serena | 🔥 fogata al atardecer, 🪼 fondo del mar, 🌸 cerezos, 🌌 aurora boreal o 🦋 mariposas |
-| nostálgica | 🪐 sistema solar, 🚆 tren nocturno, 🎆 fuegos artificiales, 🐈 cuarto lofi o 🌌 aurora boreal |
+| alegre | 🌼 jardín al sol, 🎆 fuegos artificiales, 🌸 cerezos, 🦋 mariposas, 🚗 ruta costera o 🌳 bosque |
+| serena | 🔥 fogata al atardecer, 🪼 fondo del mar, 🌸 cerezos, 🌌 aurora boreal, 🦋 mariposas o 🌳 bosque |
+| nostálgica | 🪐 sistema solar, 🚆 tren nocturno, 🎆 fuegos artificiales, 🐈 cuarto lofi, 🌌 aurora boreal o 🚗 ruta costera de noche |
 | triste | ⛵ océano con lluvia, 🚆 tren bajo la lluvia o 🐈 cuarto lofi |
-| intensa | 🌆 ciudad con tormenta |
+| intensa | 🌆 ciudad con tormenta o 🚗 ruta costera a toda velocidad |
 
 La elección se hace una vez por canción, cuando el análisis ya es fiable: de inmediato en
 modo archivo, a los ~20 segundos en Spotify. Las escenas se funden una en otra. La tecla
-`e` recorre automática y las doce escenas.
+`e` recorre automática y las catorce escenas.
 
 ### Click en la escena
 
@@ -304,6 +309,8 @@ Con el mouse, un click hace que la escena responda donde lo hiciste:
 | tren nocturno | pasa un pueblo iluminado |
 | cuarto lofi | una nota musical flota |
 | mariposas | una bandada despega desde ahí |
+| ruta costera | cruza una bandada de gaviotas |
+| bosque | todo florece un momento y salen pétalos |
 
 ### Tarjeta de la canción
 
@@ -311,10 +318,22 @@ Al empezar cada canción aparece unos segundos su título y artista en grande, y
 desvanece. `t` la apaga o enciende, `--sin-tarjeta` arranca sin ella, y en el menú queda
 guardada en la fila *Tarjeta*.
 
+### Batería
+
+Dibujar la escena cuesta poco (1–2 ms por cuadro); lo que gasta es que la terminal redibuje
+toda la pantalla 60 veces por segundo. Por eso, en pausa o en la pantalla de espera baja a
+15 FPS, y la fila *Energía* del menú decide el resto:
+
+| Energía | Qué hace |
+| --- | --- |
+| ahorra con batería (por defecto) | 60 FPS enchufado, 30 con batería (macOS y Linux) |
+| siempre fluida | 60 FPS siempre, salvo en pausa |
+| ahorro | 30 FPS siempre (`--ahorro`) |
+
 ### Letras sincronizadas
 
 Con la tecla `l`, la fila *Letras* del menú o `--letras`, la letra de lo que suena aparece
-abajo, línea por línea, siguiendo la posición de la canción en Spotify. La línea actual se
+abajo (arriba en el cuarto lofi, para no tapar el tocadiscos), línea por línea, siguiendo la posición de la canción en Spotify. La línea actual se
 ilumina mientras se canta y la siguiente espera debajo.
 
 Las letras vienen de [LRCLIB](https://lrclib.net), una base de letras libre que no pide
@@ -661,6 +680,9 @@ flowchart LR
 | `src/favorites.rs` | Canciones favoritas |
 | `src/transition.rs` | Transiciones entre canciones |
 | `src/lyrics.rs` | Letras sincronizadas: LRC, LRCLIB y caché |
+| `src/power.rs` | Ahorro de batería: FPS según pausa y batería |
+| `src/coast.rs` | Escena ruta costera: auto, mar, faroles y gaviotas |
+| `src/forest.rs` | Escena bosque: árboles que crecen y florecen |
 | `src/moment.rs` | El momento del drop |
 | `src/idle.rs` | Pantalla de espera |
 | `src/poster.rs` | Póster del herbario y resumen de la semana |

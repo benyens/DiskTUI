@@ -137,6 +137,44 @@ pub fn thumbnail(app: &str) -> Option<Vec<u8>> {
     (!bytes.is_empty()).then_some(bytes)
 }
 
+/// Lo que se puede alternar desde el teclado.
+#[derive(Clone, Copy, Debug)]
+pub enum Toggle {
+    Shuffle,
+    /// Sin repetir → la lista → la canción → sin repetir.
+    Repeat,
+}
+
+/// Alterna aleatorio o repetir. Devuelve el aviso para mostrar, o por qué no se pudo.
+pub fn toggle(app: &str, which: Toggle) -> String {
+    use windows::Media::MediaPlaybackAutoRepeatMode as Mode;
+    let Ok(Some(session)) = session(app) else { return "la app no está abierta".into() };
+    let Ok(info) = session.GetPlaybackInfo() else { return "la app no respondió".into() };
+    match which {
+        Toggle::Shuffle => {
+            let now = info.IsShuffleActive().and_then(|r| r.Value()).unwrap_or(false);
+            match session.TryChangeShuffleActiveAsync(!now).and_then(|op| op.join()) {
+                Ok(true) => format!("aleatorio: {}", if now { "apagado" } else { "encendido" }),
+                _ => "la app no deja cambiar el aleatorio".into(),
+            }
+        }
+        Toggle::Repeat => {
+            let now = info.AutoRepeatMode().and_then(|r| r.Value()).unwrap_or(Mode::None);
+            let (next, text) = if now == Mode::None {
+                (Mode::List, "repetir: la lista")
+            } else if now == Mode::List {
+                (Mode::Track, "repetir: esta canción")
+            } else {
+                (Mode::None, "repetir: apagado")
+            };
+            match session.TryChangeAutoRepeatModeAsync(next).and_then(|op| op.join()) {
+                Ok(true) => text.into(),
+                _ => "la app no deja cambiar el repetir".into(),
+            }
+        }
+    }
+}
+
 /// Le da una orden a la app. Si no se puede (la app no lo permite), no hace nada.
 pub fn control(app: &str, control: Control) {
     let Ok(Some(session)) = session(app) else { return };

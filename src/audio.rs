@@ -177,7 +177,7 @@ impl Session for FileSession {
             bands.song = map.song;
             self.last_pos = pos;
         }
-        Tick { bands, new_track: false, palette: self.palette.take(), cover: self.cover.take() }
+        Tick { bands, new_track: false, palette: self.palette.take(), cover: self.cover.take(), notice: None }
     }
     fn track(&self) -> &TrackInfo {
         &self.info

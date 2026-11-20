@@ -308,6 +308,8 @@ pub fn draw_card(buf: &mut Buffer, area: Rect, card: &Card) {
 
 /// La letra que suena y la que viene.
 pub struct LyricsLine<'a> {
+    /// Arriba del lienzo en vez de abajo.
+    pub top: bool,
     pub current: &'a str,
     pub next: &'a str,
     /// Cuánto de la línea actual ya se cantó, de 0 a 1: se ilumina de a poco.
@@ -316,15 +318,20 @@ pub struct LyricsLine<'a> {
     pub mode: ColorMode,
 }
 
-/// Filas (en celdas) de la franja de la letra: abajo del lienzo, o `None` si no cabe.
-pub fn lyrics_band(height: u16) -> Option<(u16, u16)> {
-    (height >= 8).then(|| (height - 4, height - 1))
+/// Filas (en celdas) de la franja de la letra, o `None` si no cabe. Va abajo, salvo en
+/// las escenas que tienen lo importante abajo (`top`).
+pub fn lyrics_band(height: u16, top: bool) -> Option<(u16, u16)> {
+    match (height >= 8, top) {
+        (false, _) => None,
+        (true, true) => Some((0, 3)),
+        (true, false) => Some((height - 4, height - 1)),
+    }
 }
 
 /// Dibuja la letra sobre la franja ya oscurecida del lienzo: la línea actual se ilumina de
 /// izquierda a derecha y la siguiente espera más tenue debajo.
 pub fn draw_lyrics(buf: &mut Buffer, area: Rect, line: &LyricsLine) {
-    let Some((top, _)) = lyrics_band(area.height) else { return };
+    let Some((top, _)) = lyrics_band(area.height, line.top) else { return };
     let width = area.width as usize;
     let room = width.saturating_sub(6);
     let center = |text: &str| width.saturating_sub(text.chars().count()) / 2;

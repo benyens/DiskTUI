@@ -15,6 +15,8 @@ use crate::mood::Mood;
 use crate::ocean::Ocean;
 use crate::palette::Palette;
 use crate::reef::Reef;
+use crate::coast::Coast;
+use crate::forest::Forest;
 use crate::meadow::Meadow;
 use crate::sakura::Sakura;
 use crate::scenery::Scenery;
@@ -32,6 +34,8 @@ pub struct Stage {
     fireworks: Fireworks,
     sakura: Sakura,
     meadow: Meadow,
+    coast: Coast,
+    forest: Forest,
     lofi: Lofi,
     aurora: Aurora,
     mood: Option<Mood>,
@@ -50,6 +54,8 @@ impl Stage {
             fireworks: Fireworks::new(seed),
             sakura: Sakura::new(seed),
             meadow: Meadow::new(seed),
+            coast: Coast::new(seed),
+            forest: Forest::new(seed),
             lofi: Lofi::new(seed),
             aurora: Aurora::new(seed),
             mood: None,
@@ -87,7 +93,7 @@ impl Stage {
     }
 
     /// El cielo compartido de cada escena que lo tiene.
-    fn sceneries(&mut self) -> [&mut Scenery; 11] {
+    fn sceneries(&mut self) -> [&mut Scenery; 13] {
         [
             &mut self.garden.scenery,
             &mut self.ocean.scenery,
@@ -100,10 +106,12 @@ impl Stage {
             &mut self.lofi.scenery,
             &mut self.aurora.scenery,
             &mut self.meadow.scenery,
+            &mut self.coast.scenery,
+            &mut self.forest.scenery,
         ]
     }
 
-    fn all(&mut self) -> [&mut dyn Scene; 12] {
+    fn all(&mut self) -> [&mut dyn Scene; 14] {
         [
             &mut self.garden,
             &mut self.cosmos,
@@ -117,6 +125,8 @@ impl Stage {
             &mut self.lofi,
             &mut self.aurora,
             &mut self.meadow,
+            &mut self.coast,
+            &mut self.forest,
         ]
     }
 
@@ -150,6 +160,8 @@ impl Stage {
             SceneKind::Fireworks => &mut self.fireworks,
             SceneKind::Sakura => &mut self.sakura,
             SceneKind::Meadow => &mut self.meadow,
+            SceneKind::Coast => &mut self.coast,
+            SceneKind::Forest => &mut self.forest,
             SceneKind::Lofi => &mut self.lofi,
             SceneKind::Aurora => &mut self.aurora,
         };
@@ -168,6 +180,8 @@ impl Stage {
             SceneKind::Fireworks => self.fireworks.draw(canvas, pal),
             SceneKind::Sakura => self.sakura.draw(canvas, pal),
             SceneKind::Meadow => self.meadow.draw(canvas, pal),
+            SceneKind::Coast => self.coast.draw(canvas, pal),
+            SceneKind::Forest => self.forest.draw(canvas, pal),
             SceneKind::Lofi => self.lofi.draw(canvas, pal),
             SceneKind::Aurora => self.aurora.draw(canvas, pal),
         }
@@ -236,6 +250,50 @@ mod preview {
                 tr.apply(&mut after, &before, &pal);
                 after.to_image().save(format!("{dir}/{n}_{k:02}.png")).unwrap();
             }
+        }
+    }
+}
+
+/// Costo por escena: `cargo test --release bench_scenes -- --ignored --nocapture`.
+#[cfg(test)]
+mod bench {
+    use super::*;
+    use crate::analysis::Bands;
+    use ratatui::buffer::Buffer;
+    use ratatui::layout::Rect;
+
+    #[test]
+    #[ignore]
+    fn bench_scenes() {
+        let (w, h) = (220usize, 60usize);
+        let bands = Bands { level: 0.7, bass: 0.6, mid: 0.5, treble: 0.5, intensity: 0.7, ..Bands::default() };
+        let pal = Palette::default();
+        for kind in SceneKind::ALL {
+            let mut stage = Stage::new(3, Garden::new(3, 3, None));
+            let mut canvas = Canvas::new(w, h);
+            let mut buf = Buffer::empty(Rect::new(0, 0, w as u16, h as u16));
+            let mut frame_bands = bands;
+            let (mut t_update, mut t_draw, mut t_render) = (0.0f64, 0.0f64, 0.0f64);
+            let n = 240;
+            for i in 0..n + 60 {
+                frame_bands.beat = i % 30 == 0;
+                frame_bands.kick = i % 30 == 0;
+                let frame = Frame { dt: 1.0 / 60.0, bands: &frame_bands, progress: Some(0.3 + i as f32 / 2000.0), song_len: 120.0, playing: true };
+                let a = std::time::Instant::now();
+                stage.update(&frame, w, h);
+                let b = std::time::Instant::now();
+                stage.draw(kind, &mut canvas, &pal);
+                let c = std::time::Instant::now();
+                canvas.render(&mut buf, Rect::new(0, 0, w as u16, h as u16), crate::color::ColorMode::True);
+                let d = std::time::Instant::now();
+                if i >= 60 {
+                    t_update += (b - a).as_secs_f64();
+                    t_draw += (c - b).as_secs_f64();
+                    t_render += (d - c).as_secs_f64();
+                }
+            }
+            let ms = |t: f64| t / n as f64 * 1000.0;
+            eprintln!("{:<22} update {:6.2} ms  draw {:6.2} ms  render {:6.2} ms", kind.name(), ms(t_update), ms(t_draw), ms(t_render));
         }
     }
 }

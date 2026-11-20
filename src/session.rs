@@ -26,6 +26,8 @@ pub struct Tick {
     pub palette: Option<Palette>,
     /// Miniatura de la carátula; llega junto con la paleta (`None` si no hay imagen).
     pub cover: Option<Cover>,
+    /// Aviso para mostrar (por ejemplo, el aleatorio quedó encendido).
+    pub notice: Option<String>,
 }
 
 pub trait Session {
@@ -43,6 +45,14 @@ pub trait Session {
     fn skip(&mut self, _direction: i32) {}
     /// Adelanta (o retrocede, con negativo) `seconds` dentro de la canción.
     fn seek(&mut self, _seconds: f32) {}
+    /// Alterna el aleatorio de la app. `false` si la fuente no tiene.
+    fn toggle_shuffle(&mut self) -> bool {
+        false
+    }
+    /// Alterna el repetir de la app. `false` si la fuente no tiene.
+    fn toggle_repeat(&mut self) -> bool {
+        false
+    }
     /// `steps` positivo sube el volumen, negativo lo baja.
     fn change_volume(&mut self, steps: i32);
     /// Volumen 0..1, si la fuente lo conoce.

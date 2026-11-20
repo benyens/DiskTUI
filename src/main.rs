@@ -19,6 +19,8 @@ mod garden;
 mod herbarium;
 mod idle;
 mod lyrics;
+mod coast;
+mod forest;
 mod lofi;
 mod meadow;
 mod menu;
@@ -33,6 +35,7 @@ mod paths;
 mod plant;
 mod poster;
 mod postcard;
+mod power;
 mod reef;
 mod sakura;
 mod render;
@@ -89,7 +92,7 @@ USO
 
 OPCIONES
   --escena <nombre>         auto (según el ánimo), jardin, sistema, oceano, ciudad,
-                            fogata, tren, fondo, fuegos, cerezos, lofi, aurora o mariposas
+                            fogata, tren, fondo, fuegos, cerezos, lofi, aurora, mariposas, ruta o bosque
   --fps <n>                 Cuadros por segundo (por defecto 60)
   --petalos <n>             Pétalos de la flor principal, 3 a 12 (por defecto según la canción)
   --flores <n>              Cantidad de flores, 1 a 3 (por defecto 3)
@@ -101,6 +104,7 @@ OPCIONES
   --sin-tarjeta             No muestra el título grande al empezar cada canción
   --hora-real               El cielo sigue la hora de tu reloj: de noche, noche
   --letras                  Letras sincronizadas desde LRCLIB (pide la letra a internet)
+  --ahorro                  Gasta menos batería: 30 FPS como máximo
   --hora <HH:MM>            Fija la hora del cielo (para probar cómo se ve)
   --transicion <nombre>     Entre canciones: auto (una distinta cada vez), fundido,
                             mariposas, petalos, iris, ola o destellos
@@ -112,7 +116,7 @@ OPCIONES
 TECLAS
   q / Esc    salir          espacio   pausa
   + / -      volumen        h         mostrar u ocultar el HUD
-  e          cambiar de escena (automática y las doce escenas)
+  e          cambiar de escena (automática y las catorce escenas)
   g          grabar un GIF de 8 segundos en ~/Pictures/DiskTUI
   v          grabar un GIF vertical (9:16) con carátula y título, para historias
   d          panel de detalles: qué entendió de la canción, la fuente de audio,
@@ -125,6 +129,8 @@ TECLAS
   n / p      canción siguiente / anterior (Spotify y Apple Music)
   s          guardar una postal PNG en ~/Pictures/DiskTUI
   f          marcar o desmarcar la canción como favorita (★ en el herbario)
+  a          aleatorio en Spotify o Apple Music (encender o apagar)
+  r          repetir en Spotify o Apple Music
   m          volver al menú
 ";
 
@@ -158,6 +164,8 @@ struct Args {
     hour: Option<f32>,
     /// Letras sincronizadas.
     lyrics: bool,
+    /// Ahorro de batería pedido con `--ahorro`.
+    saver: bool,
     /// Modo mini, para un panel chico: HUD de una línea, una flor, 30 FPS.
     mini: bool,
     device: Option<String>,
@@ -186,6 +194,7 @@ fn parse_args() -> Result<Args> {
         clock: false,
         hour: None,
         lyrics: false,
+        saver: false,
         mini: false,
         device: None,
         global: false,
@@ -218,6 +227,7 @@ fn parse_args() -> Result<Args> {
             "--sin-tarjeta" => args.card = false,
             "--hora-real" => args.clock = true,
             "--letras" => args.lyrics = true,
+            "--ahorro" => args.saver = true,
             "--hora" => {
                 let text = value("--hora")?;
                 let (h, m) = text.split_once(':').unwrap_or((&text, "0"));
@@ -238,7 +248,7 @@ fn parse_args() -> Result<Args> {
                 let name = value("--escena")?;
                 args.scene = Some(
                     SceneChoice::parse(&name)
-                        .ok_or_else(|| anyhow::anyhow!("escena desconocida: {name} (usa auto, jardin, sistema, oceano, ciudad, fogata, tren, fondo, fuegos, cerezos, lofi, aurora o mariposas)"))?,
+                        .ok_or_else(|| anyhow::anyhow!("escena desconocida: {name} (usa auto, jardin, sistema, oceano, ciudad, fogata, tren, fondo, fuegos, cerezos, lofi, aurora, mariposas, ruta o bosque)"))?,
                 );
             }
             "--velocidad" => {
@@ -298,6 +308,7 @@ struct RunOptions {
     /// El cielo sigue la hora: `Some(None)` la del reloj, `Some(Some(h))` una fija.
     clock: Option<Option<f32>>,
     lyrics: bool,
+    energy: power::Energy,
     mini: bool,
     /// Al terminar la canción se vuelve al menú en vez de salir.
     from_menu: bool,
@@ -338,6 +349,9 @@ fn start() -> Result<()> {
     }
     settings.clock |= args.clock;
     settings.lyrics |= args.lyrics;
+    if args.saver {
+        settings.energy = power::Energy::Saver;
+    }
     if let Some(flowers) = args.flowers {
         settings.flowers = flowers;
     }
@@ -463,6 +477,7 @@ fn launch(
             transition: settings.transition,
             clock: settings.clock.then_some(args.hour),
             lyrics: settings.lyrics,
+            energy: settings.energy,
             mini: args.mini,
             from_menu,
         };
@@ -485,7 +500,9 @@ fn run(
     args: &RunOptions,
 ) -> Result<RunEnd> {
     let mode = ColorMode::detect();
-    let frame_time = Duration::from_secs_f64(1.0 / args.fps as f64);
+    let battery = power::Battery::watch();
+    // Segundos seguidos sin reproducir: en pausa larga se dibuja más lento.
+    let mut paused_for = 0.0f32;
     let mut stage = Stage::new(seed, Garden::new(seed, args.flowers, args.petals));
     stage.force_mood(args.mood);
     let mut cover: Option<palette::Cover> = None;
@@ -582,6 +599,12 @@ fn run(
                     KeyCode::Char('-') | KeyCode::Char('_') => session.change_volume(-1),
                     KeyCode::Char('h') => show_hud = !show_hud,
                     KeyCode::Char('c') => show_cover = !show_cover,
+                    KeyCode::Char('a') | KeyCode::Char('r') => {
+                        let sent = if key.code == KeyCode::Char('a') { session.toggle_shuffle() } else { session.toggle_repeat() };
+                        if !sent {
+                            notice = Some(("aleatorio y repetir son para Spotify y Apple Music".to_string(), Instant::now()));
+                        }
+                    }
                     KeyCode::Char('l') => {
                         show_lyrics = !show_lyrics;
                         lyric_wanted = None;
@@ -679,6 +702,9 @@ fn run(
 
         // Datos de audio: llegan del hilo de análisis por el canal.
         let tick = session.tick(dt);
+        if let Some(text) = tick.notice.clone() {
+            notice = Some((text, Instant::now()));
+        }
         if let Some(p) = tick.palette {
             target_palette = p;
             cover = tick.cover;
@@ -848,7 +874,7 @@ fn run(
         });
         if let Some((current_line, next_line, _)) = lyric_now
             && !(current_line.is_empty() && next_line.is_empty())
-            && let Some((top, bottom)) = ui::lyrics_band(canvas.h as u16)
+            && let Some((top, bottom)) = ui::lyrics_band(canvas.h as u16, active.lyrics_on_top())
         {
             canvas.shade(top as usize * 2, bottom as usize * 2 + 2, 0.65);
         }
@@ -875,7 +901,7 @@ fn run(
                 ui::draw_card(frame.buffer_mut(), plant_area, &card);
             }
             if let Some((current_line, next_line, progress)) = lyric_now {
-                let line = ui::LyricsLine { current: current_line, next: next_line, progress, pal: &palette, mode };
+                let line = ui::LyricsLine { top: active.lyrics_on_top(), current: current_line, next: next_line, progress, pal: &palette, mode };
                 ui::draw_lyrics(frame.buffer_mut(), plant_area, &line);
             }
             if hud_rows > 0 {
@@ -915,7 +941,10 @@ fn run(
             }
         })?;
 
-        // Ritmo fijo de cuadros.
+        // Ritmo de cuadros: el pedido, o menos en pausa y con ahorro de energía.
+        paused_for = if session.playing() { 0.0 } else { paused_for + dt };
+        let fps = args.energy.fps(args.fps, paused_for, idle.level() > 0.5, battery.on_battery());
+        let frame_time = Duration::from_secs_f64(1.0 / fps as f64);
         next_frame += frame_time;
         let now = Instant::now();
         if next_frame > now {

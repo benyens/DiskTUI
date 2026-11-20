@@ -308,18 +308,55 @@ enum Command_ {
     Skip(i32),
     /// Segundos a adelantar (negativo: retroceder).
     Seek(f32),
+    Shuffle,
+    Repeat,
 }
 
 enum Update {
     State(Result<Option<NowPlaying>, String>),
     Palette(Palette, Option<Cover>),
+    /// Resultado de una orden, para mostrarlo.
+    Notice(String),
 }
 
-/// Ejecuta una orden del teclado en la app.
+/// AppleScript que alterna el aleatorio o el repetir y devuelve cómo quedó.
+#[cfg_attr(windows, allow(dead_code))]
+fn toggle_script(app: App, shuffle: bool) -> String {
+    let name = app.script_name();
+    let body = match (app, shuffle) {
+        (App::Spotify, true) => "set shuffling to not shuffling\nreturn shuffling as text",
+        (App::Spotify, false) => "set repeating to not repeating\nreturn repeating as text",
+        (App::Music, true) => "set shuffle enabled to not shuffle enabled\nreturn shuffle enabled as text",
+        (App::Music, false) => {
+            "if song repeat is off then\nset song repeat to all\nelse if song repeat is all then\nset song repeat to one\nelse\nset song repeat to off\nend if\nreturn song repeat as text"
+        }
+    };
+    format!("tell application \"{name}\"\n{body}\nend tell")
+}
+
+/// Convierte la respuesta de `toggle_script` en el aviso.
+#[cfg_attr(windows, allow(dead_code))]
+fn toggle_notice(shuffle: bool, answer: Option<&str>) -> String {
+    let what = if shuffle { "aleatorio" } else { "repetir" };
+    match answer.map(str::trim) {
+        Some("true") => format!("{what}: encendido"),
+        Some("false") | Some("off") => format!("{what}: apagado"),
+        Some("all") => "repetir: la lista".into(),
+        Some("one") => "repetir: esta canción".into(),
+        _ => format!("no se pudo cambiar el {what}"),
+    }
+}
+
+/// Ejecuta una orden del teclado en la app. Devuelve un aviso si la orden lo tiene.
 #[cfg(not(windows))]
-fn run_command(app: App, command: Command_) {
+fn run_command(app: App, command: Command_) -> Option<String> {
     let name = app.script_name();
     match command {
+        Command_::Shuffle | Command_::Repeat => {
+            let shuffle = matches!(command, Command_::Shuffle);
+            let answer = osascript(&toggle_script(app, shuffle));
+            return Some(toggle_notice(shuffle, answer.as_deref()));
+        }
         Command_::PlayPause => {
             osascript(&format!("tell application \"{name}\" to playpause"));
         }
@@ -339,20 +376,24 @@ fn run_command(app: App, command: Command_) {
             osascript(&format!("tell application \"{name}\" to {verb}"));
         }
     }
+    None
 }
 
 /// Ejecuta una orden del teclado en la app. El volumen no: Windows no lo expone por los
 /// controles multimedia, se usa el del sistema.
 #[cfg(windows)]
-fn run_command(app: App, command: Command_) {
-    use crate::media_windows::{Control, control};
+fn run_command(app: App, command: Command_) -> Option<String> {
+    use crate::media_windows::{Control, Toggle, control, toggle};
     let id = app.media_id();
     match command {
         Command_::PlayPause => control(id, Control::PlayPause),
         Command_::Skip(direction) => control(id, if direction > 0 { Control::Next } else { Control::Previous }),
         Command_::Seek(seconds) => control(id, Control::Seek(seconds)),
         Command_::Volume(_) => {}
+        Command_::Shuffle => return Some(toggle(id, Toggle::Shuffle)),
+        Command_::Repeat => return Some(toggle(id, Toggle::Repeat)),
     }
+    None
 }
 
 /// Intentos para conseguir la carátula de una canción nueva: en Windows la app a veces la
@@ -390,7 +431,13 @@ fn spawn_poller(app: App, tx: Sender<Update>, commands: Receiver<Command_>, stop
             }
             // Espera 1 s, o menos si llega un comando: tras ejecutarlo se vuelve a consultar.
             match commands.recv_timeout(wait) {
-                Ok(command) => run_command(app, command),
+                Ok(command) => {
+                    if let Some(text) = run_command(app, command)
+                        && tx.send(Update::Notice(text)).is_err()
+                    {
+                        break;
+                    }
+                }
                 Err(RecvTimeoutError::Timeout) => {}
                 Err(RecvTimeoutError::Disconnected) => break,
             }
@@ -504,6 +551,7 @@ impl Session for SpotifySession {
                     tick.palette = Some(p);
                     tick.cover = cover;
                 }
+                Update::Notice(text) => tick.notice = Some(text),
                 Update::State(state) => {
                     self.now_at = Instant::now();
                     match &state {
@@ -607,6 +655,14 @@ impl Session for SpotifySession {
 
     fn volume(&self) -> Option<f32> {
         self.now.as_ref().and_then(|n| n.volume)
+    }
+
+    fn toggle_shuffle(&mut self) -> bool {
+        self.commands.send(Command_::Shuffle).is_ok()
+    }
+
+    fn toggle_repeat(&mut self) -> bool {
+        self.commands.send(Command_::Repeat).is_ok()
     }
 
     fn label(&self) -> String {
@@ -756,6 +812,19 @@ mod tests {
         assert_eq!(poll_interval(&Ok(Some(song(198.0, true)))), Duration::from_millis(250));
         assert_eq!(poll_interval(&Ok(Some(song(198.0, false)))), Duration::from_secs(1));
         assert_eq!(poll_interval(&Ok(None)), Duration::from_secs(1));
+    }
+
+    #[test]
+    fn shuffle_and_repeat_scripts_and_answers() {
+        let s = toggle_script(App::Spotify, true);
+        assert!(s.contains("tell application \"Spotify\"") && s.contains("set shuffling to not shuffling"));
+        assert!(toggle_script(App::Spotify, false).contains("set repeating to not repeating"));
+        assert!(toggle_script(App::Music, true).contains("shuffle enabled"));
+        assert!(toggle_script(App::Music, false).contains("song repeat"));
+        assert_eq!(toggle_notice(true, Some("true\n")), "aleatorio: encendido");
+        assert_eq!(toggle_notice(false, Some("false")), "repetir: apagado");
+        assert_eq!(toggle_notice(false, Some("one")), "repetir: esta canción");
+        assert_eq!(toggle_notice(true, None), "no se pudo cambiar el aleatorio");
     }
 
     #[test]

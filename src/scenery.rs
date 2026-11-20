@@ -456,6 +456,15 @@ impl Scenery {
     }
 
     /// Cielo y fondo: va antes que las plantas.
+    /// Dónde está el sol y dónde la luna, como fracción del ancho (para reflejos en el agua).
+    pub fn sun_x(&self) -> f32 {
+        0.5 - 0.30 * self.moon_side
+    }
+
+    pub fn moon_x(&self) -> f32 {
+        0.5 + 0.34 * self.moon_side
+    }
+
     pub fn draw_back(&self, canvas: &mut Canvas, view: &View, pal: &Palette) {
         let k = self.presence();
         self.draw_sun(canvas, view, k);

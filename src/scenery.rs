@@ -519,7 +519,9 @@ impl Scenery {
                 let d = (dx * dx + dy * dy).sqrt();
                 let theta = dy.atan2(dx);
                 let rays = 1.0 + 0.30 * (theta * 8.0 + self.time * 0.35).sin() * (0.5 + self.bands.level);
-                let glow = power * (-(d - r).max(0.0) / (r * 1.3)).exp() * rays;
+                // Se apaga del todo antes del borde del cuadro que recorre, para que no se note.
+                let edge = (1.0 - d / reach).max(0.0);
+                let glow = power * (-(d - r).max(0.0) / (r * 1.3)).exp() * rays * edge * edge;
                 if glow > 0.004 {
                     canvas.glow(px, py, color, glow);
                 }

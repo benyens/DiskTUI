@@ -19,6 +19,7 @@ mod garden;
 mod herbarium;
 mod idle;
 mod lofi;
+mod meadow;
 mod menu;
 #[cfg(windows)]
 mod media_windows;
@@ -86,7 +87,7 @@ USO
 
 OPCIONES
   --escena <nombre>         auto (según el ánimo), jardin, sistema, oceano, ciudad,
-                            fogata, tren, fondo, fuegos, cerezos, lofi o aurora
+                            fogata, tren, fondo, fuegos, cerezos, lofi, aurora o mariposas
   --fps <n>                 Cuadros por segundo (por defecto 60)
   --petalos <n>             Pétalos de la flor principal, 3 a 12 (por defecto según la canción)
   --flores <n>              Cantidad de flores, 1 a 3 (por defecto 3)
@@ -104,7 +105,7 @@ OPCIONES
 TECLAS
   q / Esc    salir          espacio   pausa
   + / -      volumen        h         mostrar u ocultar el HUD
-  e          cambiar de escena (automática y las once escenas)
+  e          cambiar de escena (automática y las doce escenas)
   g          grabar un GIF de 8 segundos en ~/Pictures/DiskTUI
   v          grabar un GIF vertical (9:16) con carátula y título, para historias
   d          panel de detalles: qué entendió de la canción, la fuente de audio,
@@ -203,7 +204,7 @@ fn parse_args() -> Result<Args> {
                 let name = value("--escena")?;
                 args.scene = Some(
                     SceneChoice::parse(&name)
-                        .ok_or_else(|| anyhow::anyhow!("escena desconocida: {name} (usa auto, jardin, sistema, oceano, ciudad, fogata, tren, fondo, fuegos, cerezos, lofi o aurora)"))?,
+                        .ok_or_else(|| anyhow::anyhow!("escena desconocida: {name} (usa auto, jardin, sistema, oceano, ciudad, fogata, tren, fondo, fuegos, cerezos, lofi, aurora o mariposas)"))?,
                 );
             }
             "--velocidad" => {

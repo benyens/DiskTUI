@@ -15,6 +15,7 @@ use crate::mood::Mood;
 use crate::ocean::Ocean;
 use crate::palette::Palette;
 use crate::reef::Reef;
+use crate::meadow::Meadow;
 use crate::sakura::Sakura;
 use crate::scene::{Frame, Scene, SceneKind};
 use crate::train::Train;
@@ -29,6 +30,7 @@ pub struct Stage {
     reef: Reef,
     fireworks: Fireworks,
     sakura: Sakura,
+    meadow: Meadow,
     lofi: Lofi,
     aurora: Aurora,
     mood: Option<Mood>,
@@ -46,6 +48,7 @@ impl Stage {
             reef: Reef::new(seed),
             fireworks: Fireworks::new(seed),
             sakura: Sakura::new(seed),
+            meadow: Meadow::new(seed),
             lofi: Lofi::new(seed),
             aurora: Aurora::new(seed),
             mood: None,
@@ -74,7 +77,7 @@ impl Stage {
         self.aurora.scenery.force_mood(mood);
     }
 
-    fn all(&mut self) -> [&mut dyn Scene; 11] {
+    fn all(&mut self) -> [&mut dyn Scene; 12] {
         [
             &mut self.garden,
             &mut self.cosmos,
@@ -87,6 +90,7 @@ impl Stage {
             &mut self.sakura,
             &mut self.lofi,
             &mut self.aurora,
+            &mut self.meadow,
         ]
     }
 
@@ -119,6 +123,7 @@ impl Stage {
             SceneKind::Reef => &mut self.reef,
             SceneKind::Fireworks => &mut self.fireworks,
             SceneKind::Sakura => &mut self.sakura,
+            SceneKind::Meadow => &mut self.meadow,
             SceneKind::Lofi => &mut self.lofi,
             SceneKind::Aurora => &mut self.aurora,
         };
@@ -136,6 +141,7 @@ impl Stage {
             SceneKind::Reef => self.reef.draw(canvas, pal),
             SceneKind::Fireworks => self.fireworks.draw(canvas, pal),
             SceneKind::Sakura => self.sakura.draw(canvas, pal),
+            SceneKind::Meadow => self.meadow.draw(canvas, pal),
             SceneKind::Lofi => self.lofi.draw(canvas, pal),
             SceneKind::Aurora => self.aurora.draw(canvas, pal),
         }

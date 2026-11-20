@@ -16,9 +16,9 @@ carátula.
 ![100% local](https://img.shields.io/badge/audio-100%25%20local-green)
 ![Vibecoded](https://img.shields.io/badge/vibecoded-con%20Claude-8A2BE2)
 
-<img src="docs/escenas.gif" alt="Las once escenas de DiskTUI, una tras otra" width="90%">
+<img src="docs/escenas.gif" alt="Las doce escenas de DiskTUI, una tras otra" width="90%">
 
-<sub>Las once escenas, generadas desde la salida real del programa (`--demo`).</sub>
+<sub>Las doce escenas, generadas desde la salida real del programa (`--demo`).</sub>
 
 **[Instalar](#instalación) · [Usar](#uso) · [Escenas](#escenas) · [Cómo entiende la canción](#cómo-entiende-la-canción) · [Vibecoded](#hecho-con-vibe-coding)**
 
@@ -57,8 +57,8 @@ carátula.
 | 🪐 **Sistema solar** · estrellas, un sol y planetas al azar | 🌆 **Ciudad** · edificios que suben y ventanas que siguen la música |
 | <img src="docs/cerezos.png" alt="Cerezos"> | <img src="docs/lofi.png" alt="Cuarto lofi"> |
 | 🌸 **Cerezos** · un sakura florece y suelta pétalos con cada golpe | 🐈 **Cuarto lofi** · lluvia en la ventana, un gato que mueve la cola al compás |
-| <img src="docs/aurora.png" alt="Aurora boreal"> | |
-| 🌌 **Aurora boreal** · cortinas de luz sobre un lago helado | |
+| <img src="docs/aurora.png" alt="Aurora boreal"> | <img src="docs/mariposas.png" alt="Mariposas"> |
+| 🌌 **Aurora boreal** · cortinas de luz sobre un lago helado | 🦋 **Mariposas** · una migración que cruza la pradera en diagonal hacia arriba |
 
 Con la escena en *automática* (el valor por defecto), cada canción elige la suya según su
 ánimo. La tecla `e` las recorre a mano.
@@ -160,7 +160,7 @@ También se puede saltar el menú desde la línea de comandos:
 
 | Opción | Efecto |
 | --- | --- |
-| `--escena <nombre>` | `auto` (por defecto: la elige el ánimo), `jardin`, `sistema`, `oceano`, `ciudad`, `fogata`, `tren`, `fondo`, `fuegos`, `cerezos`, `lofi` o `aurora` |
+| `--escena <nombre>` | `auto` (por defecto: la elige el ánimo), `jardin`, `sistema`, `oceano`, `ciudad`, `fogata`, `tren`, `fondo`, `fuegos`, `cerezos`, `lofi`, `aurora` o `mariposas` |
 | `--flores <n>` | Flores del jardín, de 1 a 3. Por defecto 3 |
 | `--petalos <n>` | Pétalos de la flor principal, de 3 a 12 |
 | `--velocidad <x>` | Qué tan rápido crece la escena. `2` = el doble. Por defecto 1 |
@@ -175,7 +175,7 @@ También se puede saltar el menú desde la línea de comandos:
 
 | Tecla | Acción |
 | --- | --- |
-| `e` | Cambiar de escena: automática, jardín, sistema solar, océano, ciudad, fogata, tren, fondo del mar, fuegos artificiales, cerezos, cuarto lofi, aurora boreal |
+| `e` | Cambiar de escena: automática, jardín, sistema solar, océano, ciudad, fogata, tren, fondo del mar, fuegos artificiales, cerezos, cuarto lofi, aurora boreal, mariposas |
 | `←` / `→` | Retroceder / adelantar 10 segundos (archivo, Spotify, Apple Music) |
 | `g` | Grabar un GIF de 8 segundos en `~/Pictures/DiskTUI` (`g` otra vez lo corta antes) |
 | `v` | Grabar un GIF vertical (9:16) con carátula y título, para historias |
@@ -271,15 +271,15 @@ varias escenas, cada canción se queda siempre con la misma:
 
 | Ánimo | Escena |
 | --- | --- |
-| alegre | 🌼 jardín al sol, 🎆 fuegos artificiales o 🌸 cerezos |
-| serena | 🔥 fogata al atardecer, 🪼 fondo del mar, 🌸 cerezos o 🌌 aurora boreal |
+| alegre | 🌼 jardín al sol, 🎆 fuegos artificiales, 🌸 cerezos o 🦋 mariposas |
+| serena | 🔥 fogata al atardecer, 🪼 fondo del mar, 🌸 cerezos, 🌌 aurora boreal o 🦋 mariposas |
 | nostálgica | 🪐 sistema solar, 🚆 tren nocturno, 🎆 fuegos artificiales, 🐈 cuarto lofi o 🌌 aurora boreal |
 | triste | ⛵ océano con lluvia, 🚆 tren bajo la lluvia o 🐈 cuarto lofi |
 | intensa | 🌆 ciudad con tormenta |
 
 La elección se hace una vez por canción, cuando el análisis ya es fiable: de inmediato en
 modo archivo, a los ~20 segundos en Spotify. Las escenas se funden una en otra. La tecla
-`e` recorre automática y las once escenas.
+`e` recorre automática y las doce escenas.
 
 ### Click en la escena
 
@@ -296,6 +296,7 @@ Con el mouse, un click hace que la escena responda donde lo hiciste:
 | fogata | la avivas: una lluvia de chispas |
 | tren nocturno | pasa un pueblo iluminado |
 | cuarto lofi | una nota musical flota |
+| mariposas | una bandada despega desde ahí |
 
 ### Tarjeta de la canción
 
@@ -603,6 +604,11 @@ flowchart LR
 | `src/train.rs` | Escena tren nocturno: paisaje, postes y estación |
 | `src/reef.rs` | Escena fondo del mar: medusas, burbujas y algas |
 | `src/fireworks.rs` | Escena fuegos artificiales: cohetes, estallidos, lago y farolitos |
+| `src/sakura.rs` | Escena cerezos: árbol en flor, pétalos, montaña y faroles |
+| `src/lofi.rs` | Escena cuarto lofi: ventana con lluvia, gato, lámpara y tocadiscos |
+| `src/aurora.rs` | Escena aurora boreal: cortinas de luz, lago helado y cabaña |
+| `src/meadow.rs` | Escena mariposas: pradera y migración en diagonal |
+| `src/favorites.rs` | Canciones favoritas |
 | `src/moment.rs` | El momento del drop |
 | `src/idle.rs` | Pantalla de espera |
 | `src/poster.rs` | Póster del herbario y resumen de la semana |

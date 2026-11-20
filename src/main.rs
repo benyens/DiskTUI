@@ -18,6 +18,7 @@ mod fireworks;
 mod garden;
 mod herbarium;
 mod idle;
+mod lyrics;
 mod lofi;
 mod meadow;
 mod menu;
@@ -99,6 +100,7 @@ OPCIONES
   --mini                    Para un panel chico (tmux): HUD de una línea, una flor, 30 FPS
   --sin-tarjeta             No muestra el título grande al empezar cada canción
   --hora-real               El cielo sigue la hora de tu reloj: de noche, noche
+  --letras                  Letras sincronizadas desde LRCLIB (pide la letra a internet)
   --hora <HH:MM>            Fija la hora del cielo (para probar cómo se ve)
   --transicion <nombre>     Entre canciones: auto (una distinta cada vez), fundido,
                             mariposas, petalos, iris, ola o destellos
@@ -117,6 +119,7 @@ TECLAS
              los avisos completos y cómo corregir el ánimo
   c          mostrar u ocultar la carátula
   t          encender o apagar la tarjeta con el título de cada canción
+  l          encender o apagar las letras sincronizadas
   click      cada escena responde: un fuego artificial, una mariposa, un pez, un cometa…
   ← / →      retroceder / adelantar 10 segundos (archivo, Spotify, Apple Music)
   n / p      canción siguiente / anterior (Spotify y Apple Music)
@@ -153,6 +156,8 @@ struct Args {
     /// El cielo sigue el reloj; con `--hora`, una hora fija.
     clock: bool,
     hour: Option<f32>,
+    /// Letras sincronizadas.
+    lyrics: bool,
     /// Modo mini, para un panel chico: HUD de una línea, una flor, 30 FPS.
     mini: bool,
     device: Option<String>,
@@ -180,6 +185,7 @@ fn parse_args() -> Result<Args> {
         transition: None,
         clock: false,
         hour: None,
+        lyrics: false,
         mini: false,
         device: None,
         global: false,
@@ -211,6 +217,7 @@ fn parse_args() -> Result<Args> {
             "--caratula" | "--carátula" => args.cover = true,
             "--sin-tarjeta" => args.card = false,
             "--hora-real" => args.clock = true,
+            "--letras" => args.lyrics = true,
             "--hora" => {
                 let text = value("--hora")?;
                 let (h, m) = text.split_once(':').unwrap_or((&text, "0"));
@@ -290,6 +297,7 @@ struct RunOptions {
     transition: transition::Choice,
     /// El cielo sigue la hora: `Some(None)` la del reloj, `Some(Some(h))` una fija.
     clock: Option<Option<f32>>,
+    lyrics: bool,
     mini: bool,
     /// Al terminar la canción se vuelve al menú en vez de salir.
     from_menu: bool,
@@ -329,6 +337,7 @@ fn start() -> Result<()> {
         settings.transition = transition;
     }
     settings.clock |= args.clock;
+    settings.lyrics |= args.lyrics;
     if let Some(flowers) = args.flowers {
         settings.flowers = flowers;
     }
@@ -453,6 +462,7 @@ fn launch(
             card: settings.card,
             transition: settings.transition,
             clock: settings.clock.then_some(args.hour),
+            lyrics: settings.lyrics,
             mini: args.mini,
             from_menu,
         };
@@ -482,6 +492,13 @@ fn run(
     let mut show_cover = args.cover;
     // Tarjeta de canción: segundos desde que empezó la canción actual.
     let mut show_card = args.card;
+    // Letras: se piden al cambiar de canción; `wanted` es la que se espera.
+    let lyric_fetcher = lyrics::Fetcher::new();
+    let mut show_lyrics = args.lyrics;
+    let mut lyric_wanted: Option<lyrics::Request> = None;
+    let mut lyric_text: Option<lyrics::Lyrics> = None;
+    // Al encenderlas con `l` se avisa si la canción no tiene letra.
+    let mut lyric_tell = false;
     let mut card_clock: Option<f32> = Some(0.0);
     // Escena: fija, o la que pida el ánimo de la canción. En automático se elige una vez
     // por canción, cuando el análisis ya es fiable.
@@ -565,6 +582,20 @@ fn run(
                     KeyCode::Char('-') | KeyCode::Char('_') => session.change_volume(-1),
                     KeyCode::Char('h') => show_hud = !show_hud,
                     KeyCode::Char('c') => show_cover = !show_cover,
+                    KeyCode::Char('l') => {
+                        show_lyrics = !show_lyrics;
+                        lyric_wanted = None;
+                        lyric_text = None;
+                        let text = if !show_lyrics {
+                            "letras: apagadas"
+                        } else if current.known {
+                            lyric_tell = true;
+                            "letras: buscando…"
+                        } else {
+                            "letras: encendidas (aparecen con la próxima canción)"
+                        };
+                        notice = Some((text.to_string(), Instant::now()));
+                    }
                     KeyCode::Char('t') => {
                         show_card = !show_card;
                         let text = if show_card { "tarjeta de canción: encendida" } else { "tarjeta de canción: apagada" };
@@ -651,6 +682,7 @@ fn run(
         if let Some(p) = tick.palette {
             target_palette = p;
             cover = tick.cover;
+            stage.set_cover(cover.clone());
         }
         if tick.new_track {
             if collect(&current, listened, &song, &stage.garden, &target_palette) {
@@ -676,6 +708,26 @@ fn run(
             current = session.track().clone();
             card_clock = Some(0.0);
             chosen_for_track = false;
+            lyric_wanted = None;
+            lyric_text = None;
+        }
+        if show_lyrics && current.known && lyric_wanted.is_none() {
+            let req = lyrics::Request {
+                artist: current.artist.clone(),
+                title: current.title.clone(),
+                duration: current.duration.map(|d| d.as_secs_f32()),
+            };
+            lyric_fetcher.request(req.clone());
+            lyric_wanted = Some(req);
+        }
+        if let Some((req, found)) = lyric_fetcher.poll()
+            && lyric_wanted.as_ref() == Some(&req)
+        {
+            if lyric_tell && found.is_none() {
+                notice = Some(("esta canción no tiene letra sincronizada en LRCLIB".to_string(), Instant::now()));
+            }
+            lyric_tell = false;
+            lyric_text = found;
         }
         palette = palette.mix(&target_palette, 1.0 - (-dt * 2.5).exp());
 
@@ -784,6 +836,22 @@ fn run(
         // Tarjeta de canción (después de grabar: los GIF quedan limpios).
         card_clock = card_clock.map(|t| t + dt).filter(|t| *t < ui::CARD_SECONDS);
         let card_alpha = if show_card && !args.mini { card_clock.map(ui::card_alpha).unwrap_or(0.0) } else { 0.0 };
+        // La letra que suena ahora (un poco adelantada: se lee antes de cantarse).
+        let lyric_now = lyric_text.as_ref().filter(|_| show_lyrics && !args.mini).map(|l| {
+            let t = session.position().as_secs_f32() + 0.25;
+            let next = |i: usize| l.lines.get(i).map(|x| x.text.as_str()).unwrap_or("");
+            match l.index_at(t) {
+                Some(i) => (next(i), next(i + 1), l.line_progress(i, t)),
+                // Antes de la primera línea, solo se anuncia la que viene.
+                None => ("", next(0), 0.0),
+            }
+        });
+        if let Some((current_line, next_line, _)) = lyric_now
+            && !(current_line.is_empty() && next_line.is_empty())
+            && let Some((top, bottom)) = ui::lyrics_band(canvas.h as u16)
+        {
+            canvas.shade(top as usize * 2, bottom as usize * 2 + 2, 0.65);
+        }
         if card_alpha > 0.0
             && let Some((top, bottom)) = ui::card_band(canvas.h as u16)
         {
@@ -805,6 +873,10 @@ fn run(
             if card_alpha > 0.0 {
                 let card = ui::Card { title: &current.title, artist: &current.artist, alpha: card_alpha, pal: &palette, mode };
                 ui::draw_card(frame.buffer_mut(), plant_area, &card);
+            }
+            if let Some((current_line, next_line, progress)) = lyric_now {
+                let line = ui::LyricsLine { current: current_line, next: next_line, progress, pal: &palette, mode };
+                ui::draw_lyrics(frame.buffer_mut(), plant_area, &line);
             }
             if hud_rows > 0 {
                 let hud_area = Rect { y: area.bottom() - hud_rows, height: hud_rows, ..area };

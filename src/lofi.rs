@@ -10,13 +10,15 @@ use std::f32::consts::TAU;
 use crate::analysis::Bands;
 use crate::canvas::Canvas;
 use crate::color::Rgb;
-use crate::palette::Palette;
+use crate::palette::{Cover, Palette};
 use crate::plant::{Rng, smoothstep};
 use crate::render::View;
 use crate::scene::{Frame, Scene};
 use crate::scenery::Scenery;
 
 /// Ventana, como fracciones del lienzo: izquierda, arriba, derecha, abajo.
+/// Dónde está el tocadiscos, como fracción del ancho.
+const TURNTABLE_X: f32 = 0.78;
 const WINDOW: (f32, f32, f32, f32) = (0.12, 0.10, 0.62, 0.62);
 /// Altura del escritorio.
 const DESK: f32 = 0.74;
@@ -52,6 +54,9 @@ pub struct Lofi {
     notes: Vec<Note>,
     /// Canción nueva: la lámpara parpadea y el disco se cambia.
     switching: Option<f32>,
+    /// Carátula de lo que suena: el disco es un picture disc con ella y su funda queda
+    /// apoyada al lado.
+    pub cover: Option<Cover>,
 }
 
 impl Lofi {
@@ -71,6 +76,7 @@ impl Lofi {
             drops: Vec::new(),
             notes: Vec::new(),
             switching: None,
+            cover: None,
         }
     }
 
@@ -127,8 +133,8 @@ impl Lofi {
 
         // Notas que salen del tocadiscos con los pulsos fuertes.
         if f.playing && b.beat && b.intensity > 0.55 && self.rng.next() < 0.5 && self.notes.len() < MAX_NOTES {
-            let x = 0.80 + self.rng.range(-0.02, 0.02);
-            self.notes.push(Note { x, y: DESK - 0.06, age: 0.0 });
+            let x = TURNTABLE_X + self.rng.range(-0.03, 0.03);
+            self.notes.push(Note { x, y: DESK + 0.02, age: 0.0 });
         }
         for n in &mut self.notes {
             n.age += dt;
@@ -225,29 +231,108 @@ impl Lofi {
         }
     }
 
+    /// Tocadiscos sobre el escritorio, visto desde arriba y de frente: base, plato, disco
+    /// que gira y brazo. Con carátula, el disco la lleva impresa (un picture disc) y la
+    /// funda queda apoyada atrás; sin ella, es un vinilo negro con etiqueta.
+    fn draw_turntable(&self, canvas: &mut Canvas, desk: f32, pal: &Palette, warm: Rgb, on: f32) {
+        let (w, h) = (canvas.w as f32, canvas.px_h() as f32);
+        let depth = h - desk;
+        let a = (depth * 0.34 / 0.5).min(w * 0.12);
+        if a < 3.0 {
+            return;
+        }
+        let b = a * 0.5;
+        let (cx, cy) = (w * TURNTABLE_X, desk + depth * 0.5);
+        // La funda, acostada sobre el escritorio a la izquierda (vista desde arriba, como el
+        // disco: el doble de ancha que de alta).
+        if let Some(cover) = &self.cover {
+            let width = (a * 1.7).floor();
+            let height = (width * 0.5).floor();
+            let right = cx - a * 1.35 - 3.0;
+            if height >= 4.0 && right - width > 0.0 {
+                let (x0, y0) = ((right - width) as i32, (cy - height * 0.4) as i32);
+                let (nw, nh) = (width as i32, height as i32);
+                for dy in -1..=nh {
+                    for dx in -1..=nw {
+                        let edge = dx < 0 || dy < 0 || dx >= nw || dy >= nh;
+                        let c = if edge {
+                            Rgb(0.07, 0.06, 0.06)
+                        } else {
+                            cover.at((dx as f32 + 0.5) / width, (dy as f32 + 0.5) / height).scale(0.5 + 0.4 * on).add(warm, 0.08 * on)
+                        };
+                        canvas.solid(x0 + dx, y0 + dy, c);
+                    }
+                }
+                // Su canto, más oscuro, para que parezca apoyada y no pintada.
+                for dx in 0..=nw {
+                    canvas.solid(x0 + dx, y0 + nh + 1, Rgb(0.05, 0.04, 0.04));
+                }
+            }
+        }
+        // Base de madera oscura con su canto.
+        let plinth = Rgb(0.09, 0.08, 0.08).add(warm, 0.10 * on);
+        let (left, right) = ((cx - a * 1.35) as i32, (cx + a * 1.65) as i32);
+        let (top, bottom) = ((cy - b * 1.4) as i32, (cy + b * 1.4) as i32);
+        for y in top..=bottom + 1 {
+            for x in left..=right {
+                let c = if y > bottom { plinth.scale(0.6) } else { plinth };
+                canvas.solid(x, y, c);
+            }
+        }
+        // Plato, un poco más grande que el disco.
+        let angle = self.record * TAU;
+        let (sa, ca) = angle.sin_cos();
+        let label = pal.petal;
+        for y in (cy - b * 1.08) as i32..=(cy + b * 1.08) as i32 {
+            for x in (cx - a * 1.08) as i32..=(cx + a * 1.08) as i32 {
+                let (u, v) = ((x as f32 + 0.5 - cx) / a, (y as f32 + 0.5 - cy) / b);
+                let r = (u * u + v * v).sqrt();
+                if r > 1.08 {
+                    continue;
+                }
+                if r > 1.0 {
+                    canvas.solid(x, y, Rgb(0.30, 0.30, 0.32).scale(0.6 + 0.4 * on));
+                    continue;
+                }
+                // Coordenadas sobre el disco que gira.
+                let (ru, rv) = (u * ca - v * sa, u * sa + v * ca);
+                let grooves = 0.92 + 0.08 * (r * 38.0).sin();
+                let shine = ((u.atan2(v) * 2.0 + 0.6).sin() * 0.5 + 0.5).powi(6) * 0.25;
+                let c = if r < 0.06 {
+                    Rgb(0.75, 0.75, 0.78)
+                } else if r > 0.94 {
+                    Rgb(0.03, 0.03, 0.04)
+                } else {
+                    match &self.cover {
+                        // La carátula entera dentro del disco: sus esquinas quedan fuera.
+                        Some(cover) => cover.at(ru * 0.5 / 0.94 + 0.5, rv * 0.5 / 0.94 + 0.5).scale(0.5 + 0.35 * on),
+                        None if r < 0.34 => label.scale(0.6 + 0.4 * on).mix(Rgb::WHITE, 0.15 * (ru * 6.0).sin().max(0.0)),
+                        None => Rgb(0.04, 0.04, 0.05),
+                    }
+                };
+                canvas.solid(x, y, c.scale(grooves).add(Rgb::WHITE, shine * (0.5 + 0.5 * on)));
+            }
+        }
+        // Brazo: desde el pivote, atrás a la derecha, hasta la púa sobre el disco.
+        let pivot = (cx + a * 1.35, cy - b * 0.95);
+        let needle = (cx + a * 0.62, cy + b * 0.35);
+        let steps = ((pivot.0 - needle.0).abs() + (pivot.1 - needle.1).abs()).ceil() as i32 * 2;
+        let arm = Rgb(0.78, 0.78, 0.80).scale(0.55 + 0.45 * on);
+        for k in 0..=steps {
+            let t = k as f32 / steps.max(1) as f32;
+            let (x, y) = (pivot.0 + (needle.0 - pivot.0) * t, pivot.1 + (needle.1 - pivot.1) * t);
+            canvas.solid(x as i32, y as i32, arm);
+        }
+        canvas.solid(pivot.0 as i32, pivot.1 as i32, Rgb(0.5, 0.5, 0.52));
+        canvas.solid(pivot.0 as i32 + 1, pivot.1 as i32, Rgb(0.5, 0.5, 0.52));
+        // Luz de encendido que late con el pulso.
+        canvas.glow(right - 1, bottom - 1, Rgb(1.0, 0.35, 0.25), 0.4 + 0.5 * self.beat_pulse);
+    }
+
     fn draw_desk_things(&self, canvas: &mut Canvas, desk: f32, pal: &Palette, warm: Rgb, on: f32) {
         let (w, h) = (canvas.w as f32, canvas.px_h() as f32);
         let base = desk as i32 - 1;
-        // Tocadiscos: base, disco que gira (un brillo que da vueltas) y su etiqueta.
-        let (rx, rr) = (w * 0.78, (h * 0.07).clamp(2.0, 6.0));
-        let deck = Rgb(0.16, 0.12, 0.10).add(warm, 0.15 * on);
-        for dx in -(rr as i32 * 2 + 3)..=(rr as i32 * 2 + 3) {
-            for dy in 0..2 {
-                canvas.solid(rx as i32 + dx, base - dy, deck);
-            }
-        }
-        let cy = base - 2;
-        let angle = self.record * TAU;
-        for dx in -(rr as i32 * 2)..=(rr as i32 * 2) {
-            let u = dx as f32 / (rr * 2.0);
-            // El disco se ve casi de canto: una elipse muy achatada.
-            for dy in 0..=((1.0 - u * u).max(0.0).sqrt() * rr * 0.35).round() as i32 {
-                let shine = ((u * 3.0 - angle).sin() * 0.5 + 0.5).powi(4);
-                let label = u.abs() < 0.2;
-                let c = if label { pal.petal } else { Rgb(0.04, 0.04, 0.05).add(Rgb::WHITE, 0.25 * shine) };
-                canvas.solid(rx as i32 + dx, cy - dy, c);
-            }
-        }
+        self.draw_turntable(canvas, desk, pal, warm, on);
         // Taza con vapor que se apaga hacia el final de la canción.
         let (mx, my) = (w * 0.66, base);
         let mug = pal.accent.scale(0.45).add(warm, 0.2 * on);
@@ -413,5 +498,28 @@ mod tests {
             let mut canvas = Canvas::new(w, h);
             room.draw(&mut canvas, &Palette::default());
         }
+    }
+
+    #[test]
+    fn the_record_shows_the_cover() {
+        let mut room = Lofi::new(5);
+        let bands = Bands::default();
+        room.update(&frame(&bands, 0.5), 120, 30);
+        let draw = |room: &Lofi| {
+            let mut canvas = Canvas::new(120, 30);
+            room.draw(&mut canvas, &Palette::default());
+            canvas.to_image()
+        };
+        let plain = draw(&room);
+        // Una carátula verde pura: tiene que aparecer en el disco y en la funda.
+        let mut png = Vec::new();
+        image::RgbImage::from_pixel(8, 8, image::Rgb([0, 255, 0]))
+            .write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png)
+            .unwrap();
+        room.cover = Cover::from_image_bytes(&png);
+        let covered = draw(&room);
+        let green = |img: &image::RgbImage| img.pixels().filter(|p| p[1] > 90 && p[0] < 40 && p[2] < 40).count();
+        assert_eq!(green(&plain), 0);
+        assert!(green(&covered) > 200, "{}", green(&covered));
     }
 }

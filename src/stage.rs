@@ -81,6 +81,11 @@ impl Stage {
         }
     }
 
+    /// Carátula de lo que suena, para las escenas que la muestran (el tocadiscos lofi).
+    pub fn set_cover(&mut self, cover: Option<crate::palette::Cover>) {
+        self.lofi.cover = cover;
+    }
+
     /// El cielo compartido de cada escena que lo tiene.
     fn sceneries(&mut self) -> [&mut Scenery; 11] {
         [

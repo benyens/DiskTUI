@@ -204,6 +204,14 @@ impl Cover {
         Some(Cover { side: Self::SIDE as usize, px })
     }
 
+    /// Color en (`u`, `v`), cada uno de 0 a 1 desde la esquina de arriba a la izquierda.
+    pub fn at(&self, u: f32, v: f32) -> Rgb {
+        let side = self.side.max(1);
+        let x = ((u.clamp(0.0, 0.999)) * side as f32) as usize;
+        let y = ((v.clamp(0.0, 0.999)) * side as f32) as usize;
+        self.px.get(y * side + x).copied().unwrap_or(Rgb::BLACK)
+    }
+
     /// La miniatura como imagen de `size`×`size` píxeles, con bordes nítidos.
     pub fn to_image(&self, size: u32) -> image::RgbImage {
         let mut img = image::RgbImage::new(self.side as u32, self.side as u32);

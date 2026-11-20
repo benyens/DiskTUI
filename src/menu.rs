@@ -54,6 +54,8 @@ pub struct Settings {
     pub transition: crate::transition::Choice,
     /// El cielo sigue la hora del reloj en vez del ánimo de la canción.
     pub clock: bool,
+    /// Letras sincronizadas desde LRCLIB.
+    pub lyrics: bool,
 }
 
 impl Source {
@@ -82,6 +84,7 @@ impl Default for Settings {
             card: true,
             transition: crate::transition::Choice::Auto,
             clock: false,
+            lyrics: false,
         }
     }
 }
@@ -138,6 +141,7 @@ impl Settings {
                 "caratula" => s.cover = value == "si",
                 "tarjeta" => s.card = value != "no",
                 "cielo" => s.clock = value == "reloj",
+                "letras" => s.lyrics = value == "si",
                 "transicion" => s.transition = crate::transition::Choice::parse(value).unwrap_or(crate::transition::Choice::Auto),
                 _ => {}
             }
@@ -147,7 +151,7 @@ impl Settings {
 
     pub fn serialize(&self) -> String {
         format!(
-            "fuente={}\narchivo={}\nescena={}\nflores={}\nvelocidad={}\ncaptura={}\nanimo={}\ncaratula={}\ntarjeta={}\ntransicion={}\ncielo={}\n",
+            "fuente={}\narchivo={}\nescena={}\nflores={}\nvelocidad={}\ncaptura={}\nanimo={}\ncaratula={}\ntarjeta={}\ntransicion={}\ncielo={}\nletras={}\n",
             match self.source {
                 Source::Spotify => "spotify",
                 Source::Music => "music",
@@ -164,6 +168,7 @@ impl Settings {
             if self.card { "si" } else { "no" },
             self.transition.key(),
             if self.clock { "reloj" } else { "cancion" },
+            if self.lyrics { "si" } else { "no" },
         )
     }
 }
@@ -211,6 +216,7 @@ enum Row {
     Card,
     Transition,
     Clock,
+    Lyrics,
     Capture,
 }
 
@@ -234,6 +240,9 @@ fn rows(s: &Settings) -> Vec<Row> {
     rows.push(Row::Card);
     rows.push(Row::Transition);
     rows.push(Row::Clock);
+    if s.source != Source::Demo {
+        rows.push(Row::Lyrics);
+    }
     if matches!(s.source, Source::Spotify | Source::Music) {
         rows.push(Row::Capture);
     }
@@ -264,6 +273,7 @@ fn change(s: &mut Settings, row: Row, step: i32) {
         Row::Card => s.card = !s.card,
         Row::Transition => s.transition = s.transition.step(step),
         Row::Clock => s.clock = !s.clock,
+        Row::Lyrics => s.lyrics = !s.lyrics,
         Row::Mood => {
             // Automático primero, luego los cinco climas.
             let i = s.mood.and_then(|m| Mood::ALL.iter().position(|x| *x == m)).map_or(0, |i| i + 1);
@@ -287,6 +297,7 @@ fn value_text(s: &Settings, row: Row) -> String {
         Row::Card => if s.card { "al empezar cada canción" } else { "apagada" }.into(),
         Row::Transition => s.transition.name().into(),
         Row::Clock => if s.clock { "la hora de tu reloj" } else { "según la canción" }.into(),
+        Row::Lyrics => if s.lyrics { "sincronizadas (LRCLIB)" } else { "apagadas" }.into(),
         Row::Flowers => s.flowers.to_string(),
         Row::Speed => format!("{}×", s.speed),
         Row::Capture => if s.global { "todo el sistema" } else { "solo la app" }.into(),
@@ -313,6 +324,7 @@ fn label(row: Row) -> &'static str {
         Row::Card => "Tarjeta",
         Row::Transition => "Transición",
         Row::Clock => "Cielo",
+        Row::Lyrics => "Letras",
         Row::Mood => "Clima",
     }
 }
@@ -584,6 +596,7 @@ mod tests {
             card: false,
             transition: crate::transition::Choice::Fixed(crate::transition::Style::Wave),
             clock: true,
+            lyrics: true,
         };
         assert_eq!(Settings::parse(&s.serialize()), s);
     }
@@ -600,15 +613,15 @@ mod tests {
     fn rows_follow_the_choices() {
         let mut s = Settings::default();
         // En automática no hay fila de flores; con el jardín elegido, sí.
-        assert_eq!(rows(&s), [Row::Source, Row::Scene, Row::Mood, Row::Speed, Row::Cover, Row::Card, Row::Transition, Row::Clock, Row::Capture]);
+        assert_eq!(rows(&s), [Row::Source, Row::Scene, Row::Mood, Row::Speed, Row::Cover, Row::Card, Row::Transition, Row::Clock, Row::Lyrics, Row::Capture]);
         s.scene = SceneChoice::Fixed(SceneKind::Garden);
         assert_eq!(
             rows(&s),
-            [Row::Source, Row::Scene, Row::Flowers, Row::Mood, Row::Speed, Row::Cover, Row::Card, Row::Transition, Row::Clock, Row::Capture]
+            [Row::Source, Row::Scene, Row::Flowers, Row::Mood, Row::Speed, Row::Cover, Row::Card, Row::Transition, Row::Clock, Row::Lyrics, Row::Capture]
         );
         s.source = Source::File;
         s.scene = SceneChoice::Fixed(SceneKind::Cosmos);
-        assert_eq!(rows(&s), [Row::Source, Row::File, Row::Scene, Row::Mood, Row::Speed, Row::Cover, Row::Card, Row::Transition, Row::Clock]);
+        assert_eq!(rows(&s), [Row::Source, Row::File, Row::Scene, Row::Mood, Row::Speed, Row::Cover, Row::Card, Row::Transition, Row::Clock, Row::Lyrics]);
         // El océano tiene clima pero no flores; el demo no tiene carátula.
         s.source = Source::Demo;
         s.scene = SceneChoice::Fixed(SceneKind::Ocean);

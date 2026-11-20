@@ -306,6 +306,44 @@ pub fn draw_card(buf: &mut Buffer, area: Rect, card: &Card) {
     }
 }
 
+/// La letra que suena y la que viene.
+pub struct LyricsLine<'a> {
+    pub current: &'a str,
+    pub next: &'a str,
+    /// Cuánto de la línea actual ya se cantó, de 0 a 1: se ilumina de a poco.
+    pub progress: f32,
+    pub pal: &'a Palette,
+    pub mode: ColorMode,
+}
+
+/// Filas (en celdas) de la franja de la letra: abajo del lienzo, o `None` si no cabe.
+pub fn lyrics_band(height: u16) -> Option<(u16, u16)> {
+    (height >= 8).then(|| (height - 4, height - 1))
+}
+
+/// Dibuja la letra sobre la franja ya oscurecida del lienzo: la línea actual se ilumina de
+/// izquierda a derecha y la siguiente espera más tenue debajo.
+pub fn draw_lyrics(buf: &mut Buffer, area: Rect, line: &LyricsLine) {
+    let Some((top, _)) = lyrics_band(area.height) else { return };
+    let width = area.width as usize;
+    let room = width.saturating_sub(6);
+    let center = |text: &str| width.saturating_sub(text.chars().count()) / 2;
+    let current = text_fit(line.current, room);
+    if !current.is_empty() {
+        let x = center(&current);
+        let total = current.chars().count();
+        let lit = ((line.progress * total as f32).ceil() as usize).min(total);
+        let sung: String = current.chars().take(lit).collect();
+        let rest: String = current.chars().skip(lit).collect();
+        let col = put(buf, area, line.mode, x, top + 1, &sung, line.pal.petal_light.mix(Rgb::WHITE, 0.75));
+        put(buf, area, line.mode, col, top + 1, &rest, Rgb::WHITE.scale(0.50));
+    }
+    let next = text_fit(line.next, room);
+    if !next.is_empty() {
+        put(buf, area, line.mode, center(&next), top + 2, &next, Rgb::WHITE.scale(0.36));
+    }
+}
+
 fn text_fit(text: &str, width: usize) -> String {
     if text.chars().count() <= width {
         text.to_string()

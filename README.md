@@ -13,7 +13,7 @@ carátula.
 ![macOS](https://img.shields.io/badge/macOS-Apple%20Silicon%20%7C%20Intel-lightgrey?logo=apple)
 ![Windows](https://img.shields.io/badge/Windows-experimental-0078D6?logo=windows)
 ![TUI](https://img.shields.io/badge/TUI-ratatui-blue)
-![100% local](https://img.shields.io/badge/audio-100%25%20local-green)
+![audio local](https://img.shields.io/badge/audio-100%25%20local-green)
 ![Vibecoded](https://img.shields.io/badge/vibecoded-con%20Claude-8A2BE2)
 
 <img src="docs/escenas.gif" alt="Las doce escenas de DiskTUI, una tras otra" width="90%">
@@ -41,8 +41,9 @@ carátula.
 - 🎨 **Colores de la carátula** en todo: pétalos, velas, fuegos, medusas.
 - 🎧 **Spotify, Apple Music o archivos** (mp3, flac, wav, ogg, m4a).
 - 📸 **Para compartir**: postal PNG, GIF, y GIF vertical con título para historias.
-- 🔒 **100% local.** Sin APIs ni cuentas. La única llamada de red es bajar la carátula en
-  modo Spotify.
+- 🎤 **Letras sincronizadas** (opcional) que se iluminan mientras se cantan.
+- 🔒 **Local y sin cuentas.** El audio se analiza en tu equipo. Las únicas consultas a
+  internet son la carátula en modo Spotify y, si las enciendes, las letras.
 
 ## Escenas
 
@@ -57,7 +58,7 @@ carátula.
 | <img src="docs/sistema.png" alt="Sistema solar"> | <img src="docs/ciudad.png" alt="Ciudad"> |
 | 🪐 **Sistema solar** · estrellas, un sol y planetas al azar | 🌆 **Ciudad** · edificios que suben y ventanas que siguen la música |
 | <img src="docs/cerezos.png" alt="Cerezos"> | <img src="docs/lofi.png" alt="Cuarto lofi"> |
-| 🌸 **Cerezos** · un sakura florece y suelta pétalos con cada golpe | 🐈 **Cuarto lofi** · lluvia en la ventana, un gato que mueve la cola al compás |
+| 🌸 **Cerezos** · un sakura florece y suelta pétalos con cada golpe | 🐈 **Cuarto lofi** · lluvia en la ventana, un gato al compás y un tocadiscos con la carátula de lo que suena |
 | <img src="docs/aurora.png" alt="Aurora boreal"> | <img src="docs/mariposas.png" alt="Mariposas"> |
 | 🌌 **Aurora boreal** · cortinas de luz sobre un lago helado | 🦋 **Mariposas** · una migración que cruza la pradera en diagonal hacia arriba |
 
@@ -171,6 +172,7 @@ También se puede saltar el menú desde la línea de comandos:
 | `--fps <n>` | Cuadros por segundo. Por defecto 60 |
 | `--sin-hud` | Arranca sin el HUD |
 | `--sin-tarjeta` | No muestra la tarjeta con el título al empezar cada canción |
+| `--letras` | Letras sincronizadas desde LRCLIB |
 | `--hora-real` | El cielo sigue la hora de tu reloj |
 | `--hora <HH:MM>` | Fija la hora del cielo, para probar |
 | `--transicion <nombre>` | Entre canciones: `auto` (una distinta cada vez), `fundido`, `mariposas`, `petalos`, `iris`, `ola` o `destellos` |
@@ -185,6 +187,7 @@ También se puede saltar el menú desde la línea de comandos:
 | `v` | Grabar un GIF vertical (9:16) con carátula y título, para historias |
 | `c` | Mostrar u ocultar la carátula |
 | `t` | Encender o apagar la tarjeta con el título de cada canción |
+| `l` | Encender o apagar las letras sincronizadas |
 | `f` | Marcar o desmarcar la canción como favorita |
 | click | La escena responde donde hiciste click |
 | `d` | Panel de detalles: qué entendió de la canción, la fuente de audio y los avisos completos. Con el panel abierto, `1`–`5` corrigen el ánimo y `0` lo devuelve a automático |
@@ -308,6 +311,18 @@ Al empezar cada canción aparece unos segundos su título y artista en grande, y
 desvanece. `t` la apaga o enciende, `--sin-tarjeta` arranca sin ella, y en el menú queda
 guardada en la fila *Tarjeta*.
 
+### Letras sincronizadas
+
+Con la tecla `l`, la fila *Letras* del menú o `--letras`, la letra de lo que suena aparece
+abajo, línea por línea, siguiendo la posición de la canción en Spotify. La línea actual se
+ilumina mientras se canta y la siguiente espera debajo.
+
+Las letras vienen de [LRCLIB](https://lrclib.net), una base de letras libre que no pide
+cuenta. Vienen apagadas porque es una consulta a internet: solo se mandan artista, título y
+duración. Cada letra queda guardada en `letras/`, junto al herbario, y no se vuelve a pedir.
+Si una canción no tiene letra, o la quieres corregir, deja ahí un `.lrc` propio con el
+nombre `Artista - Título.lrc`.
+
 ### Cielo según tu reloj
 
 Con *Cielo: la hora de tu reloj* en el menú (o `--hora-real`), el cielo sigue la hora
@@ -335,6 +350,9 @@ valor por defecto) cada canción trae una distinta y nunca repite la anterior:
 
 Se elige en el menú (fila *Transición*) o con `--transicion <nombre>`. Cuando la escena
 automática cambia de escena dentro de una canción, usa la misma transición.
+
+Con Spotify, la transición empieza justo cuando termina la canción, sin esperar a que la
+app avise de la siguiente.
 
 ### Cuando se equivoca
 
@@ -642,6 +660,7 @@ flowchart LR
 | `src/meadow.rs` | Escena mariposas: pradera y migración en diagonal |
 | `src/favorites.rs` | Canciones favoritas |
 | `src/transition.rs` | Transiciones entre canciones |
+| `src/lyrics.rs` | Letras sincronizadas: LRC, LRCLIB y caché |
 | `src/moment.rs` | El momento del drop |
 | `src/idle.rs` | Pantalla de espera |
 | `src/poster.rs` | Póster del herbario y resumen de la semana |

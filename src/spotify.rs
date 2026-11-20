@@ -367,6 +367,7 @@ fn spawn_poller(app: App, tx: Sender<Update>, commands: Receiver<Command_>, stop
         let mut pending: Option<(NowPlaying, u32)> = None;
         while !stop.load(Ordering::Relaxed) {
             let now = query(app);
+            let wait = poll_interval(&now);
             let new_track = now.as_ref().ok().and_then(|n| n.as_ref()).filter(|n| n.id != current_id).cloned();
             if tx.send(Update::State(now)).is_err() {
                 break;
@@ -388,13 +389,55 @@ fn spawn_poller(app: App, tx: Sender<Update>, commands: Receiver<Command_>, stop
                 }
             }
             // Espera 1 s, o menos si llega un comando: tras ejecutarlo se vuelve a consultar.
-            match commands.recv_timeout(Duration::from_secs(1)) {
+            match commands.recv_timeout(wait) {
                 Ok(command) => run_command(app, command),
                 Err(RecvTimeoutError::Timeout) => {}
                 Err(RecvTimeoutError::Disconnected) => break,
             }
         }
     });
+}
+
+/// Anticipa el cambio de canción: Spotify avisa la canción nueva hasta un segundo tarde
+/// (se consulta cada segundo), así que el cambio se anuncia apenas la actual llega al final.
+/// Cuando después llega la nueva, ya no se anuncia otra vez.
+#[derive(Default, Debug)]
+struct EndWatch {
+    fired: bool,
+}
+
+impl EndWatch {
+    /// Segundos antes del final en que se anuncia.
+    const LEAD: f32 = 0.35;
+
+    /// Se llama cada cuadro. `true` si hay que anunciar el cambio ahora.
+    fn near_end(&mut self, playing: bool, position: f32, duration: Option<f32>) -> bool {
+        let Some(total) = duration.filter(|d| *d > 10.0) else { return false };
+        if position < total - 2.0 {
+            // Volvió atrás (repetir la canción, adelantar con las flechas): se rearma.
+            self.fired = false;
+            return false;
+        }
+        if !self.fired && playing && position >= total - Self::LEAD {
+            self.fired = true;
+            return true;
+        }
+        false
+    }
+
+    /// Llegó otra canción. `true` si el cambio ya se había anunciado.
+    fn arrived(&mut self) -> bool {
+        std::mem::take(&mut self.fired)
+    }
+}
+
+/// Espera entre consultas: cerca del final, más seguido, para notar la canción nueva al tiro.
+fn poll_interval(now: &Result<Option<NowPlaying>, String>) -> Duration {
+    let near_end = match now {
+        Ok(Some(n)) if n.playing => n.duration.is_some_and(|d| d.as_secs_f32() - n.position < 4.0),
+        _ => false,
+    };
+    Duration::from_millis(if near_end { 250 } else { 1000 })
 }
 
 pub struct SpotifySession {
@@ -415,6 +458,7 @@ pub struct SpotifySession {
     started: Instant,
     /// Último error de AppleScript (casi siempre, falta el permiso de Automatización).
     script_error: Option<String>,
+    end: EndWatch,
 }
 
 impl SpotifySession {
@@ -446,6 +490,7 @@ impl SpotifySession {
             silent_for: 0.0,
             started: Instant::now(),
             script_error: None,
+            end: EndWatch::default(),
         })
     }
 }
@@ -464,11 +509,15 @@ impl Session for SpotifySession {
                     match &state {
                         Ok(Some(n)) => {
                             if n.id != self.current_id {
+                                // Si ya se anunció al llegar al final, no se repite.
+                                let announced = self.end.arrived();
                                 // La primera canción no marchita nada: aún no hay planta.
-                                tick.new_track = !self.current_id.is_empty();
+                                tick.new_track = !self.current_id.is_empty() && !announced;
                                 self.current_id = n.id.clone();
                                 // El análisis olvida el tempo y la tonalidad de la anterior.
-                                self.capture.link.reset.store(true, Ordering::Relaxed);
+                                if !announced {
+                                    self.capture.link.reset.store(true, Ordering::Relaxed);
+                                }
                             }
                             self.info = TrackInfo {
                                 title: n.title.clone(),
@@ -497,6 +546,12 @@ impl Session for SpotifySession {
                     self.now = state.ok().flatten();
                 }
             }
+        }
+        // La canción llegó al final: el cambio se anuncia ya, sin esperar la consulta.
+        let total = self.info.duration.map(|d| d.as_secs_f32());
+        if self.end.near_end(self.playing(), self.position().as_secs_f32(), total) && !self.current_id.is_empty() {
+            tick.new_track = true;
+            self.capture.link.reset.store(true, Ordering::Relaxed);
         }
         if self.playing() && tick.bands.level < 0.01 {
             self.silent_for += dt;
@@ -660,6 +715,47 @@ mod tests {
     fn cleans_osascript_errors() {
         let raw = "34:46: execution error: No autorizado para enviar eventos Apple a Spotify. (-1743)\n";
         assert_eq!(clean_error(raw), "No autorizado para enviar eventos Apple a Spotify. (-1743)");
+    }
+
+    #[test]
+    fn the_change_is_announced_once_at_the_end() {
+        let mut w = EndWatch::default();
+        let total = Some(200.0);
+        assert!(!w.near_end(true, 100.0, total));
+        assert!(!w.near_end(true, 199.5, total));
+        assert!(w.near_end(true, 199.7, total));
+        // Solo una vez, aunque siga en el final.
+        assert!(!w.near_end(true, 199.9, total));
+        // Llega la canción nueva: ya estaba anunciada.
+        assert!(w.arrived());
+        assert!(!w.near_end(true, 0.5, Some(180.0)));
+        // Una canción que cambia sin pasar por el final (saltada) no estaba anunciada.
+        assert!(!w.arrived());
+        // En pausa o sin duración, nada.
+        assert!(!w.near_end(false, 179.9, Some(180.0)));
+        assert!(!w.near_end(true, 5.0, None));
+        // Repetir la misma canción: al volver al inicio se rearma.
+        assert!(w.near_end(true, 179.8, Some(180.0)));
+        assert!(!w.near_end(true, 1.0, Some(180.0)));
+        assert!(w.near_end(true, 179.8, Some(180.0)));
+    }
+
+    #[test]
+    fn polls_faster_near_the_end() {
+        let song = |position: f32, playing: bool| NowPlaying {
+            id: "x".into(),
+            title: "t".into(),
+            artist: "a".into(),
+            duration: Some(Duration::from_secs(200)),
+            position,
+            playing,
+            artwork_url: String::new(),
+            volume: None,
+        };
+        assert_eq!(poll_interval(&Ok(Some(song(100.0, true)))), Duration::from_secs(1));
+        assert_eq!(poll_interval(&Ok(Some(song(198.0, true)))), Duration::from_millis(250));
+        assert_eq!(poll_interval(&Ok(Some(song(198.0, false)))), Duration::from_secs(1));
+        assert_eq!(poll_interval(&Ok(None)), Duration::from_secs(1));
     }
 
     #[test]

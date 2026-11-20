@@ -21,6 +21,7 @@ ratatui = "0.30"
 realfft = "3.5"
 rodio = { version = "0.23", default-features = false, features = ["playback", "flac", "mp3", "mp4", "vorbis", "wav"] }
 rtrb = "0.4"
+serde_json = "1"
 
 # Windows: título, carátula y controles desde los controles multimedia del sistema.
 [target.'cfg(windows)'.dependencies]
